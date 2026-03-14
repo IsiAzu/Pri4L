@@ -141,9 +141,8 @@ This is significantly cheaper than a single Livox Mid-360 ($800) per room and ar
 
 **Recommendation:** Depth-only nodes are the right default for extension anchors. Document RGB as an optional upgrade for specific use cases (object recognition, semantic labeling in extended rooms) with explicit user opt-in. The 360° depth anchor concept is architecturally sound and privacy-conservative relative to camera-based alternatives.
 
----
-
 **Add to dependencies:** Phase 1.5 stress test gates Phase 4 (spatial anchor layer) design -- anchor reliability assumptions need to be validated against real multi-room drift data before the anchor persistence format is finalized.
+
 ---
 
 ## Phase 3 — Glasses-side depth sensing
