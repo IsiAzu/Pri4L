@@ -13,7 +13,10 @@ Living document. Updated as architecture decisions are made and milestones are r
 | Live map building | Spatial mapping working | Done |
 | Map survives restart + relocalizes | Persistent spatial memory — core demo | Done |
 | Client connects to hub map | Hub-to-client communication | Done |
-| Digital content anchored to real-world position | AR rendering pipeline | — |
+| Phone app streams camera + IMU to hub | Phone-to-hub data pipeline | Done |
+| Hub relocalizes phone against saved map | Cross-device localization | Done |
+| LLM answers spatial queries | AI integration baseline | Done |
+| Digital content anchored to real-world position | AR rendering pipeline | In progress (arcore-overlay branch) |
 
 ---
 
@@ -63,9 +66,9 @@ The 20ms motion-to-photon constraint is non-negotiable. Anything that touches he
 
 ### Track B — Phone fallback
 
-1. Android app — stream phone camera + IMU to hub (scaffolded at `android/`)
-2. Hub relocalization — return pose + anchor positions
-3. ARCore overlay — render hub anchor positions on phone camera feed
+1. ~~Android app — stream phone camera + IMU to hub~~ (done — `android/`)
+2. ~~Hub relocalization — return pose + anchor positions~~ (done — `launch_phone_localizer.sh`)
+3. ARCore overlay — render hub anchor positions on phone camera feed (in progress — `arcore-overlay` branch)
 4. Headless proof first — confirm data pipeline before display work
 
 **Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object. The phone bridge is also critical for mobile mode (decision 007) — this app is a stepping stone toward that.
@@ -175,12 +178,15 @@ Hard ceiling: 20ms motion-to-photon. Partition clearly what stays local vs what 
 
 ---
 
-## Phase 6 — LLM / AI integration
+## Phase 6 — LLM / AI integration (started)
 
-Hub is wall-powered — no inference constraints.
+Hub is wall-powered — no thermal or power constraints, but current hardware (16GB RAM, no discrete GPU) limits model size to ~8B parameters on CPU.
 
-- Local inference stack: Ollama / llama.cpp
-- Define interface between spatial context and AI: what does the model know about the room, what can it see, how is it queried
+- ~~Local inference stack: Ollama~~ (done — llama3.2:3b installed, ~5s response on CPU)
+- ~~Interface between spatial context and AI~~ (done — `spatial_query.py`, queries via `/hub/query` topic)
+- **Next: Object/surface detection** — YOLO v8 on hub RGB frames → labeled objects with 3D positions fed into LLM context
+- **Next: Upgrade to 8B** — swap to llama3.1:8b for better reasoning once object detection enriches the context
+- **Future: Hub GPU upgrade** — current GMKtec M6 Ultra (Ryzen 7640HS, 16GB, no discrete GPU) handles prototype workloads but CPU inference caps at ~8B models and ~5-15s response times. YOLO runs at ~100-200ms/frame on CPU. Upgrade path: eGPU enclosure + RTX 3060 12GB (if USB4/TB available) or replace with mini-ITX build with discrete GPU. This unlocks 10x inference speed, real-time YOLO, and larger models (13B+). Gate: needed when object detection and conversational-speed LLM responses are required simultaneously
 
 ---
 
