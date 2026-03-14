@@ -1,6 +1,6 @@
 # AR Spatial Hub
 
-Open source proof-of-concept for a hub-and-spoke AR architecture. A fixed room-based hub handles persistent spatial memory and heavy compute. Lightweight glasses act as a thin-client display peripheral.
+Open source prototype for a hub-and-spoke AR architecture. A fixed room-based hub handles persistent spatial memory and heavy compute. Lightweight glasses act as a thin-client display peripheral.
 
 **Core thesis:** move weight and compute off the face and into the room.
 
@@ -11,12 +11,14 @@ Open source proof-of-concept for a hub-and-spoke AR architecture. A fixed room-b
 | Component | Role |
 |-----------|------|
 | Hub (room tower) | Wall-powered. SLAM, spatial mapping, LLM inference, persistent world model. No thermal or battery constraints. |
-| Glasses (thin client) | Display, eye tracking, head tracking, camera, microphones, WiFi. Receives world model from hub. Does not run SLAM. |
-| Phone (personal bridge) | Cellular, personal context, authentication. Anything that needs to leave the local network. |
+| Glasses (thin client) | Android fork (AOSP Level 2). Two modes: **hub mode** (receives composed frames, local reprojection) and **mobile mode** (standalone HUD, phone-bridged apps). Does not run SLAM. |
+| Phone (personal bridge) | Cellular, personal context, authentication. In mobile mode, serves as primary compute bridge for glasses. |
 
 ## Why this architecture
 
 Commercial AR puts a compute puck in your pocket with a beefy AI coprocessor, rechargeable batteries, 5G, and active cooling. That is the right answer when you are mobile. At home or in a fixed workspace, you are paying weight and cost penalties for mobility you do not need. Wall power removes every constraint. The glasses become a display peripheral. The room becomes the brain.
+
+Away from the hub, the glasses switch to mobile mode — a lightweight HUD powered by the phone as compute bridge. No spatial AR, no world model, but still useful: notifications, navigation, body-relative UI, and phone app bridging.
 
 ---
 
@@ -46,14 +48,55 @@ Commercial AR puts a compute puck in your pocket with a beefy AI coprocessor, re
 Pri4L/
 ├── README.md
 ├── roadmap.md
-├── decisions/
-│   ├── 001-no-companion-puck.md
-│   ├── 002-hybrid-render-split.md
-│   └── 003-phone-over-pi-fallback.md
-├── hardware/
-│   └── bom.md
-└── src/
+├── setup.sh                        # Full install from clean Ubuntu 22.04
+├── launch_hub.sh                   # Start hub (RealSense + RTAB-Map + rosbridge)
+├── launch_phone_localizer.sh       # Phone relocalization (standalone)
+├── decisions/                      # Numbered design decision docs (001-007)
+├── android/                        # Phone client app (Kotlin, Jetpack Compose)
+├── client/
+│   └── test.html                   # Browser WebSocket test client
+└── hardware/
+    └── bom.md
 ```
+
+---
+
+## How to run
+
+### Hub
+
+```bash
+# Install dependencies (first time only, Ubuntu 22.04)
+bash setup.sh
+
+# Start the hub (RealSense + RTAB-Map + rosbridge WebSocket)
+bash launch_hub.sh              # Resume mapping from existing database
+bash launch_hub.sh --new-map    # Start a fresh map
+bash launch_hub.sh --localize   # Lock map, localize only
+bash launch_hub.sh --with-phone # Also start phone relocalization
+bash launch_hub.sh --help       # Show all options
+```
+
+### Phone localizer (standalone)
+
+```bash
+# If the hub is already running and you want to add phone relocalization
+bash launch_phone_localizer.sh
+bash launch_phone_localizer.sh --help
+```
+
+### Phone client app
+
+Open `android/` in Android Studio. Build and run on a phone or emulator.
+
+1. Enter the hub's IP address and port 9090
+2. Tap **Connect** — status dot turns green
+3. Toggle **IMU** and **Camera** to start streaming sensor data to the hub
+4. Pose updates appear when the hub relocalizes the phone's camera
+
+### Browser test client
+
+Open `client/test.html` in a browser. Enter the hub address and click Connect.
 
 ---
 

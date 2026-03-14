@@ -28,3 +28,4 @@ The INMO Air3 (Snapdragon XR, Android 14) has sufficient onboard compute to run 
 - Head tracking and IMU must stay on glasses — never offloaded
 - Frame transport protocol decision deferred to Phase 2 build (MJPEG vs H.264/RTP vs WebRTC)
 - Need to verify INMO Air3 exposes IMU via standard Android SensorManager
+- This hybrid split applies to **hub mode** only. In mobile mode (decision 007), glasses render body-relative HUD locally with phone as compute bridge — no hub involvement

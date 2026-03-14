@@ -8,16 +8,16 @@ Living document. Updated as architecture decisions are made and milestones are r
 
 | Milestone | What it proves | Status |
 |-----------|---------------|--------|
-| Live depth feed | Hardware working | — |
-| ROS2 topics publishing | Middleware working | — |
-| Live map building | Spatial mapping working | — |
-| Map survives restart + relocalizes | Persistent spatial memory — core demo | — |
-| Client connects to hub map | Hub-to-client communication | — |
+| Live depth feed | Hardware working | Done |
+| ROS2 topics publishing | Middleware working | Done |
+| Live map building | Spatial mapping working | Done |
+| Map survives restart + relocalizes | Persistent spatial memory — core demo | Done |
+| Client connects to hub map | Hub-to-client communication | Done |
 | Digital content anchored to real-world position | AR rendering pipeline | — |
 
 ---
 
-## Phase 1 — Hub sensing (current)
+## Phase 1 — Hub sensing (complete)
 
 Establish persistent spatial memory on the hub. All subsequent phases depend on this being solid.
 
@@ -29,11 +29,11 @@ Establish persistent spatial memory on the hub. All subsequent phases depend on 
 5. RTAB-Map — live 3D map building visible in GUI
 6. Persistent map — build map, shut down, relaunch in localization mode, relocalize
 
-**Open problem:** RealSense D435i covers limited FOV. Works for desk-scale POC. Room-scale coverage requires upgrade (Livox Mid-360, Slamtec RPLIDAR A3 — different SDK, different ROS2 driver, different SLAM tuning).
+**Open problem:** RealSense D435i covers limited FOV. Works for desk-scale prototype. Room-scale coverage requires upgrade (Livox Mid-360, Slamtec RPLIDAR A3 — different SDK, different ROS2 driver, different SLAM tuning).
 
 ---
 
-## Phase 2 — Client connection — hybrid architecture
+## Phase 2 — Client connection — hybrid architecture (current)
 
 Connect a client device to the hub's spatial map. Two parallel tracks. Pursue Track A first; fall back to Track B if blocked.
 
@@ -63,12 +63,12 @@ The 20ms motion-to-photon constraint is non-negotiable. Anything that touches he
 
 ### Track B — Phone fallback
 
-1. Android app — stream phone camera + IMU to hub
+1. Android app — stream phone camera + IMU to hub (scaffolded at `android/`)
 2. Hub relocalization — return pose + anchor positions
 3. ARCore overlay — render hub anchor positions on phone camera feed
 4. Headless proof first — confirm data pipeline before display work
 
-**Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object.
+**Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object. The phone bridge is also critical for mobile mode (decision 007) — this app is a stepping stone toward that.
 
 ---
 ## Phase 2.5: Multi-Room Extensibility
@@ -186,12 +186,15 @@ Hub is wall-powered — no inference constraints.
 
 ## Phase 7 — Glasses hardware design
 
-Custom form factor, open source hardware.
+Custom form factor, open source hardware. Android fork (AOSP Level 2) — see decision 007.
 
+- **OS:** Stripped AOSP fork. Two modes — hub mode (thin-client reprojection) and mobile mode (standalone HUD, phone bridge)
+- **Chip constraint:** Must be Android-capable. Snapdragon AR2/XR series or Rockchip — microcontroller candidates eliminated
 - Fusion 360: handles both organic surfacing and parametric mechanical constraints
 - Reference: Brilliant Labs Frame open hardware, OpenGlass
 - Weight budget: gram count every component before committing to placement
 - Constraints: PCB dimensions, flex cable routing, battery in temples, heat dissipation
+- Timewarp/reprojection must bypass SurfaceFlinger in hub mode to meet 20ms budget
 
 ---
 
