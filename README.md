@@ -38,6 +38,7 @@ Away from the hub, the glasses switch to mobile mode — a lightweight HUD power
 | RealSense SDK | Hardware interface for D435i |
 | ROS2 Humble | Middleware — connects sensor data to processing |
 | RTAB-Map | Spatial mapping, loop closure, persistent storage |
+| Ollama (llama3.2:3b) | Local LLM inference — spatial queries |
 | OpenXR / Monado | Glasses-side XR runtime (future) |
 
 ---
@@ -51,6 +52,9 @@ Pri4L/
 ├── setup.sh                        # Full install from clean Ubuntu 22.04
 ├── launch_hub.sh                   # Start hub (RealSense + RTAB-Map + rosbridge)
 ├── launch_phone_localizer.sh       # Phone relocalization (standalone)
+├── launch_spatial_query.sh         # LLM spatial query service
+├── publish_test_anchors.sh         # Test anchor publisher for AR overlay
+├── spatial_query.py                # Spatial query ROS2 node (Ollama)
 ├── decisions/                      # Numbered design decision docs (001-007)
 ├── android/                        # Phone client app (Kotlin, Jetpack Compose)
 ├── client/
@@ -83,6 +87,19 @@ bash launch_hub.sh --help       # Show all options
 # If the hub is already running and you want to add phone relocalization
 bash launch_phone_localizer.sh
 bash launch_phone_localizer.sh --help
+```
+
+### Spatial query service
+
+```bash
+# Start the LLM spatial query service (requires Ollama + hub running)
+bash launch_spatial_query.sh
+
+# Ask a question
+ros2 topic pub /hub/query std_msgs/msg/String "{data: 'what do you know about this room?'}" --once
+
+# Listen for responses
+ros2 topic echo /hub/response
 ```
 
 ### Phone client app
