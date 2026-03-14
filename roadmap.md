@@ -71,6 +71,80 @@ The 20ms motion-to-photon constraint is non-negotiable. Anything that touches he
 **Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object.
 
 ---
+## Roadmap Addition — Phase 1.5: Multi-Room Extensibility
+
+### Stress Test: Map Extension Beyond Single Room
+
+**Prerequisite:** Phase 2 (client-to-hub streaming) complete and stable.
+
+**What to test:**
+- Walk glasses through 2-3 connected rooms during OOBE; verify hub fuses into single coherent map
+- Relocalization reliability in rooms beyond hub FOV -- test cold start (glasses off, back on) in a distant room
+- Drift accumulation over distance -- place anchors at max range, measure positional stability across sessions
+- Loop closure behavior in geometrically similar spaces (identical hallways, repeated furniture)
+- WiFi streaming stability at range (2-3 rooms, multiple walls)
+
+**Expected failure modes to document:** relocalization false positives in similar geometry, anchor drift compounding with distance, no ongoing spatial awareness past hub FOV, streaming degradation through walls.
+
+---
+
+### Extension Anchor Modules
+
+**Concept:** Lightweight fixed sensor nodes deployed in rooms beyond hub FOV. No onboard compute -- raw sensor data streams back to hub over local network. Hub owns all processing and world model fusion.
+
+**What each node needs:**
+- Depth sensor (no RGB camera -- see privacy note below)
+- WiFi or wired ethernet back to hub
+- Power (wall outlet or PoE)
+- No compute beyond basic USB/network bridge
+
+**Candidate hardware per node:**
+
+| Component | Option | Approx. Cost |
+|---|---|---|
+| Depth-only ToF | Intel RealSense L515 (discontinued, used) | $80-150 |
+| Depth-only ToF | Orbbec Femto Bolt | $230-280 |
+| Depth-only ToF | Microsoft Azure Kinect DK (used) | $150-200 |
+| Depth structured light | Luxonis OAK-D (depth only mode) | $150-200 |
+| Single-board bridge | Raspberry Pi Zero 2W | $15 |
+| PoE hat (if wired) | Standard Pi PoE hat | $20 |
+| Enclosure + mount | Off the shelf | $10-20 |
+
+**Rough per-node cost: $175-320 depending on sensor choice.**
+
+**Whole-home cost estimate:**
+
+| Scale | Nodes | Approx. Total |
+|---|---|---|
+| 2-room apartment | 1 extension node | $175-320 |
+| 3-4 room home | 2-3 nodes | $350-960 |
+| Large home / office | 4-6 nodes | $700-1,900 |
+
+This is significantly cheaper than a single Livox Mid-360 ($800) per room and architecturally more flexible.
+
+---
+
+### Privacy: Depth-Only Anchor Nodes
+
+**The concern:** A camera-equipped sensor in every room is a fundamentally different privacy proposition than a depth sensor. RGB captures faces, screens, documents, intimate behavior. Depth captures geometry and movement -- substantially lower sensitivity.
+
+**Depth-only mitigations:**
+- No RGB means no facial recognition, no screen capture, no readable text
+- Depth silhouettes can still identify individuals by gait/body shape at high resolution -- worth noting but significantly harder than RGB identification
+- Data never leaves local network; hub processes and stores locally
+- Open source stack means the processing pipeline is auditable
+
+**Residual concerns depth-only doesn't solve:**
+- Presence and movement tracking is still possible -- the system knows when someone enters a room, how long they stay, movement patterns
+- In enterprise/multi-user contexts this becomes a meaningful surveillance capability even without RGB
+- Needs explicit disclosure and consent model in the privacy design (Phase 8)
+
+**Recommendation:** Depth-only nodes are the right default for extension anchors. Document RGB as an optional upgrade for specific use cases (object recognition, semantic labeling in extended rooms) with explicit user opt-in. The 360° depth anchor concept is architecturally sound and privacy-conservative relative to camera-based alternatives.
+
+---
+
+**Add to dependencies:** Phase 1.5 stress test gates Phase 4 (spatial anchor layer) design -- anchor reliability assumptions need to be validated against real multi-room drift data before the anchor persistence format is finalized.
+---
 
 ## Phase 3 — Glasses-side depth sensing
 
