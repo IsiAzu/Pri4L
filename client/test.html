@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AR Spatial Hub — Bridge Test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; margin: 2em; }
+        h1 { font-size: 1.2em; }
+        #status { padding: 0.5em; margin: 1em 0; }
+        .connected { color: #4caf50; }
+        .disconnected { color: #f44336; }
+        #topics { margin: 1em 0; }
+        #topics li { margin: 0.3em 0; }
+        #log { background: #111; padding: 1em; height: 300px; overflow-y: auto; font-size: 0.85em; white-space: pre-wrap; }
+        button { font-family: monospace; background: #333; color: #e0e0e0; border: 1px solid #555; padding: 0.5em 1em; cursor: pointer; margin: 0.3em; }
+        button:hover { background: #444; }
+        input { font-family: monospace; background: #111; color: #e0e0e0; border: 1px solid #555; padding: 0.5em; width: 300px; }
+    </style>
+</head>
+<body>
+    <h1>AR Spatial Hub — WebSocket Bridge Test</h1>
+
+    <div>
+        <label>Hub address: </label>
+        <input id="host" type="text" value="localhost:9090">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div id="status" class="disconnected">Disconnected</div>
+
+    <div>
+        <button onclick="getTopics()">List Topics</button>
+        <button onclick="subscribePose()">Subscribe to Map Data</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <h3>Available Topics</h3>
+    <ul id="topics"></ul>
+
+    <h3>Log</h3>
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+        let msgCount = 0;
+
+        function log(msg) {
+            const el = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            el.textContent += `[${time}] ${msg}\n`;
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        function setStatus(connected) {
+            const el = document.getElementById('status');
+            el.textContent = connected ? 'Connected' : 'Disconnected';
+            el.className = connected ? 'connected' : 'disconnected';
+        }
+
+        function connect() {
+            const host = document.getElementById('host').value;
+            if (ws) ws.close();
+
+            ws = new WebSocket(`ws://${host}`);
+
+            ws.onopen = () => {
+                setStatus(true);
+                log('Connected to rosbridge');
+            };
+
+            ws.onclose = () => {
+                setStatus(false);
+                log('Disconnected');
+            };
+
+            ws.onerror = (e) => {
+                log('Connection error');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.op === 'service_response' && data.values && data.values.topics) {
+                    const list = document.getElementById('topics');
+                    list.innerHTML = '';
+                    data.values.topics.forEach(t => {
+                        const li = document.createElement('li');
+                        li.textContent = t;
+                        list.appendChild(li);
+                    });
+                    log(`Found ${data.values.topics.length} topics`);
+                } else if (data.op === 'publish') {
+                    msgCount++;
+                    const topic = data.topic;
+                    const msg = data.msg;
+
+                    if (topic.includes('mapData') || topic.includes('map_data')) {
+                        log(`[${topic}] Map update received (msg #${msgCount})`);
+                    } else if (topic.includes('odom') || topic.includes('pose')) {
+                        const pos = msg.pose?.pose?.position || msg.position || {};
+                        log(`[${topic}] pos: x=${pos.x?.toFixed(3)}, y=${pos.y?.toFixed(3)}, z=${pos.z?.toFixed(3)}`);
+                    } else if (topic.includes('info')) {
+                        log(`[${topic}] info received`);
+                    } else {
+                        const summary = JSON.stringify(msg).substring(0, 120);
+                        log(`[${topic}] ${summary}...`);
+                    }
+
+                    // Throttle log display
+                    if (msgCount % 100 === 0) {
+                        log(`--- ${msgCount} messages received total ---`);
+                    }
+                }
+            };
+        }
+
+        function disconnect() {
+            if (ws) ws.close();
+            ws = null;
+        }
+
+        function send(msg) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected');
+                return;
+            }
+            ws.send(JSON.stringify(msg));
+        }
+
+        function getTopics() {
+            send({
+                op: 'call_service',
+                service: '/rosapi/topics',
+                type: 'rosapi/srv/Topics'
+            });
+        }
+
+        function subscribePose() {
+            // Subscribe to RTAB-Map odometry
+            send({
+                op: 'subscribe',
+                topic: '/rtabmap/odom',
+                type: 'nav_msgs/msg/Odometry',
+                throttle_rate: 500
+            });
+
+            // Subscribe to map updates
+            send({
+                op: 'subscribe',
+                topic: '/rtabmap/mapData',
+                type: 'rtabmap_msgs/msg/MapData',
+                throttle_rate: 2000
+            });
+
+            // Subscribe to map graph
+            send({
+                op: 'subscribe',
+                topic: '/rtabmap/mapGraph',
+                type: 'rtabmap_msgs/msg/MapGraph',
+                throttle_rate: 2000
+            });
+
+            log('Subscribed to map data and odometry');
+        }
+    </script>
+</body>
+</html>
