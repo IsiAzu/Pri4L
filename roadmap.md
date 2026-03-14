@@ -71,7 +71,7 @@ The 20ms motion-to-photon constraint is non-negotiable. Anything that touches he
 **Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object.
 
 ---
-## Roadmap Addition — Phase 1.5: Multi-Room Extensibility
+## Roadmap Addition — Phase 2.5: Multi-Room Extensibility
 
 ### Stress Test: Map Extension Beyond Single Room
 
