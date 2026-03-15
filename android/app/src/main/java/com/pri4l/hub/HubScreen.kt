@@ -1,5 +1,6 @@
 package com.pri4l.hub
 
+import android.opengl.GLSurfaceView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 
 data class PoseData(val x: Double = 0.0, val y: Double = 0.0, val z: Double = 0.0)
 
@@ -22,13 +24,22 @@ fun HubScreen(
     pose: PoseData,
     imuActive: Boolean,
     cameraActive: Boolean,
+    arActive: Boolean,
+    arAvailable: Boolean,
+    isAligned: Boolean,
+    savedHost: String,
+    savedPort: String,
     onConnect: (String, Int) -> Unit,
     onDisconnect: () -> Unit,
     onToggleImu: (Boolean) -> Unit,
-    onToggleCamera: (Boolean) -> Unit
+    onToggleCamera: (Boolean) -> Unit,
+    onToggleAr: (Boolean) -> Unit,
+    onAlign: () -> Unit,
+    glSurfaceView: GLSurfaceView?
 ) {
-    var hostInput by remember { mutableStateOf("192.168.1.100") }
-    var portInput by remember { mutableStateOf("9090") }
+    var hostInput by remember { mutableStateOf(savedHost) }
+    var portInput by remember { mutableStateOf(savedPort) }
+    val connected = connectionState == ConnectionState.CONNECTED
 
     Column(
         modifier = Modifier
@@ -38,7 +49,7 @@ fun HubScreen(
     ) {
         Text("Pri4L Hub", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
 
-        // Connection
+        // Connection status
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -79,7 +90,6 @@ fun HubScreen(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val connected = connectionState == ConnectionState.CONNECTED
             Button(
                 onClick = { onConnect(hostInput, portInput.toIntOrNull() ?: 9090) },
                 enabled = !connected
@@ -105,7 +115,7 @@ fun HubScreen(
                 Switch(
                     checked = imuActive,
                     onCheckedChange = onToggleImu,
-                    enabled = connectionState == ConnectionState.CONNECTED
+                    enabled = connected
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -114,7 +124,52 @@ fun HubScreen(
                 Switch(
                     checked = cameraActive,
                     onCheckedChange = onToggleCamera,
-                    enabled = connectionState == ConnectionState.CONNECTED
+                    enabled = connected && !arActive
+                )
+            }
+        }
+
+        // AR controls
+        if (arAvailable) {
+            Divider()
+            Text("AR", fontSize = 16.sp)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("ARCore")
+                    Spacer(Modifier.width(8.dp))
+                    Switch(
+                        checked = arActive,
+                        onCheckedChange = onToggleAr,
+                        enabled = connected
+                    )
+                }
+
+                Button(
+                    onClick = onAlign,
+                    enabled = arActive && connected && !isAligned
+                ) {
+                    Text(if (isAligned) "Aligned" else "Align")
+                }
+
+                if (isAligned) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF4CAF50))
+                    )
+                }
+            }
+
+            if (arActive && !isAligned) {
+                Text(
+                    "Stand at the D435, point phone same direction, tap Align",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -129,5 +184,16 @@ fun HubScreen(
             fontSize = 14.sp,
             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
         )
+
+        // AR preview
+        if (arActive && glSurfaceView != null) {
+            Divider()
+            AndroidView(
+                factory = { glSurfaceView!! },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
+        }
     }
 }

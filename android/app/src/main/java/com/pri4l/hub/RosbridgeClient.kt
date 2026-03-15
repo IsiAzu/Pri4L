@@ -21,6 +21,7 @@ class RosbridgeClient {
 
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS) // no timeout for WebSocket
+        .pingInterval(10, TimeUnit.SECONDS)
         .build()
 
     private var ws: WebSocket? = null
@@ -51,11 +52,8 @@ class RosbridgeClient {
                 mainHandler.post {
                     state.value = ConnectionState.CONNECTED
                     reconnectAttempt = 0
-                    // Re-subscribe existing subscriptions after reconnect
-                    subscriptions.keys.forEach { topic ->
-                        // Subscriptions are re-established but we don't store type/throttle.
-                        // Callers should re-subscribe after observing CONNECTED state.
-                    }
+                    // Clear advertised topics so they get re-advertised on next publish
+                    advertisedTopics.clear()
                 }
             }
 
@@ -108,17 +106,35 @@ class RosbridgeClient {
         mainHandler.removeCallbacksAndMessages(null)
         ws?.close(1000, "user disconnect")
         ws = null
+        advertisedTopics.clear()
         state.value = ConnectionState.DISCONNECTED
     }
 
+    private val advertisedTopics = mutableSetOf<String>()
+
     fun publish(topic: String, type: String, msg: JSONObject) {
+        // Rosbridge requires topics to be advertised before publishing
+        if (topic !in advertisedTopics) {
+            val adJson = JSONObject().apply {
+                put("op", "advertise")
+                put("topic", topic)
+                put("type", type)
+            }
+            ws?.send(adJson.toString())
+            advertisedTopics.add(topic)
+        }
+
         val json = JSONObject().apply {
             put("op", "publish")
             put("topic", topic)
             put("type", type)
             put("msg", msg)
         }
-        ws?.send(json.toString())
+        try {
+            ws?.send(json.toString())
+        } catch (_: Exception) {
+            // Drop frame silently — reconnect will handle recovery
+        }
     }
 
     fun subscribe(topic: String, type: String, throttleMs: Int = 0, callback: (JSONObject) -> Unit) {

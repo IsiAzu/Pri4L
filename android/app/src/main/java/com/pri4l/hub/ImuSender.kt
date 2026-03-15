@@ -72,7 +72,10 @@ class ImuSender(
 
     private val publishRunnable = object : Runnable {
         override fun run() {
-            if (!running) return
+            if (!running || client.state.value != ConnectionState.CONNECTED) {
+                if (running) publishHandler?.postDelayed(this, 100)
+                return
+            }
 
             val now = System.currentTimeMillis()
             val sec = now / 1000
@@ -116,7 +119,7 @@ class ImuSender(
 
             client.publish("/phone/imu", "sensor_msgs/msg/Imu", msg)
 
-            publishHandler?.postDelayed(this, 20) // ~50Hz
+            publishHandler?.postDelayed(this, 100) // ~10Hz
         }
     }
 }
