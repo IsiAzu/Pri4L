@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pri4L Hub</string>
+
+    <!-- Connection & status -->
+    <string name="status_disconnected">Not connected. Enter the hub IP and tap Connect.</string>
+    <string name="status_connecting">Connecting to hub…</string>
+    <string name="status_error">Connection interrupted. Check Wi‑Fi and that the hub is running. Retrying…</string>
+    <string name="status_connected_idle">Connected. Enable IMU, Camera, or ARCore when ready.</string>
+    <string name="status_ar_not_tracking">ARCore: Not tracking. Point at the room and move gently.</string>
+    <string name="status_ar_paused">ARCore: Tracking paused. Move to a well-lit area with visible texture.</string>
+    <string name="status_ar_tracking_align">ARCore: Tracking OK. Stand at the hub depth camera, face the same direction, then tap Align.</string>
+    <string name="status_ar_aligned">Aligned: pose is in the hub map frame. Tap Clear alignment if content drifts.</string>
+
+    <string name="privacy_title">Data &amp; privacy (POC)</string>
+    <string name="privacy_body">This app sends data to your hub only on the local network (no encryption in this prototype).\n\n• Hub: stores an RTAB-Map spatial database and session logs on disk.\n• Phone: ARCore runs on-device; camera/IMU go to the hub only when you enable those switches.\n• Anyone on the same Wi‑Fi could reach an unprotected hub — use a trusted network.\n\nSee the repo file docs/privacy-poc.md for full detail.</string>
+    <string name="privacy_ok">OK</string>
+    <string name="privacy_link">Data &amp; privacy</string>
+
+    <string name="clear_alignment">Clear alignment</string>
 </resources>

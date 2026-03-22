@@ -14,9 +14,9 @@ Living document. Updated as architecture decisions are made and milestones are r
 | Map survives restart + relocalizes | Persistent spatial memory — core demo | Done |
 | Client connects to hub map | Hub-to-client communication | Done |
 | Phone app streams camera + IMU to hub | Phone-to-hub data pipeline | Done |
-| Hub relocalizes phone against saved map | Cross-device localization | Done |
+| Hub relocalizes phone against saved map | Cross-device localization | Superseded — see ARCore + manual alignment (009) |
 | LLM answers spatial queries | AI integration baseline | Done |
-| Digital content anchored to real-world position | AR rendering pipeline | In progress (arcore-overlay branch) |
+| Digital content anchored to real-world position | AR rendering pipeline — ARCore overlay + hub anchors | Done (phone POC); glasses Track A still open |
 
 ---
 
@@ -67,9 +67,11 @@ The 20ms motion-to-photon constraint is non-negotiable. Anything that touches he
 ### Track B — Phone fallback
 
 1. ~~Android app — stream phone camera + IMU to hub~~ (done — `android/`)
-2. ~~Hub relocalization — return pose + anchor positions~~ (done — `launch_phone_localizer.sh`)
-3. ARCore overlay — render hub anchor positions on phone camera feed (in progress — `arcore-overlay` branch)
-4. Headless proof first — confirm data pipeline before display work
+2. ~~Pose + anchors in hub frame~~ (done — **ARCore** on phone + **manual alignment** to hub map; see `decisions/009-arcore-manual-alignment.md`. Hub-side visual relocalization of the phone was removed.)
+3. ~~ARCore overlay — hub anchor positions on phone camera feed~~ (done — `android/` + `publish_test_anchors.sh`)
+4. ~~Headless pipeline~~ — superseded by integrated AR path above
+
+**Next (Track B):** polish (alignment UX, AprilTag), then port lessons to **Track A** (INMO / Unity).
 
 **Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object. The phone bridge is also critical for mobile mode (decision 007) — this app is a stepping stone toward that.
 

@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
     private val cameraRunning = mutableStateOf(false)
     private val arRunning = mutableStateOf(false)
     private val arAvailable = mutableStateOf(false)
+    private val arTrackingUiState = mutableStateOf(ArTrackingUiState.OFF)
     private val aligned = mutableStateOf(false)
     private val pose = mutableStateOf(PoseData())
 
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
                         cameraActive = cameraRunning.value,
                         arActive = arRunning.value,
                         arAvailable = arAvailable.value,
+                        arTrackingState = arTrackingUiState.value,
                         isAligned = aligned.value,
                         savedHost = prefs.getString("host", "192.168.68.143") ?: "192.168.68.143",
                         savedPort = prefs.getString("port", "9090") ?: "9090",
@@ -86,6 +88,7 @@ class MainActivity : ComponentActivity() {
                         onToggleCamera = ::handleToggleCamera,
                         onToggleAr = ::handleToggleAr,
                         onAlign = ::handleAlign,
+                        onClearAlignment = ::handleClearAlignment,
                         glSurfaceView = glSurfaceView
                     )
                 }
@@ -174,6 +177,11 @@ class MainActivity : ComponentActivity() {
         alignRequested = true
     }
 
+    private fun handleClearAlignment() {
+        frameAlignment.reset()
+        aligned.value = false
+    }
+
     private fun startAr() {
         try {
             val session = Session(this)
@@ -203,18 +211,27 @@ class MainActivity : ComponentActivity() {
             }
             glSurfaceView = surfaceView
             arRunning.value = true
+            arTrackingUiState.value = ArTrackingUiState.NOT_TRACKING
         } catch (e: Exception) {
             arAvailable.value = false
+            arTrackingUiState.value = ArTrackingUiState.OFF
         }
     }
 
     private fun onArFrame(frame: Frame) {
+        val cam = frame.camera
+        val uiTrack = when (cam.trackingState) {
+            TrackingState.TRACKING -> ArTrackingUiState.TRACKING
+            TrackingState.PAUSED -> ArTrackingUiState.PAUSED
+            TrackingState.STOPPED -> ArTrackingUiState.NOT_TRACKING
+        }
+        runOnUiThread { arTrackingUiState.value = uiTrack }
+
         // Handle alignment request from UI thread
         if (alignRequested) {
             alignRequested = false
-            val camera = frame.camera
-            if (camera.trackingState == TrackingState.TRACKING) {
-                val arPose = camera.pose
+            if (cam.trackingState == TrackingState.TRACKING) {
+                val arPose = cam.pose
                 val arPos = floatArrayOf(arPose.tx(), arPose.ty(), arPose.tz())
                 val arRot = floatArrayOf(arPose.qx(), arPose.qy(), arPose.qz(), arPose.qw())
 
@@ -254,6 +271,7 @@ class MainActivity : ComponentActivity() {
     private fun stopAr() {
         arRunning.value = false
         aligned.value = false
+        arTrackingUiState.value = ArTrackingUiState.OFF
         frameAlignment.reset()
         glSurfaceView = null
         arCameraBridge = null

@@ -6,6 +6,14 @@ Open source prototype for a hub-and-spoke AR architecture. A fixed room-based hu
 
 ---
 
+## Current POC (what works on `main`)
+
+- **Hub:** Ubuntu 22.04 + RealSense D435i + ROS2 Humble + RTAB-Map + **rosbridge** WebSocket (port **9090**). Started with `launch_hub.sh`.
+- **Phone (Track B):** Android app under `android/` — **ARCore** for 6DOF, **manual one-time alignment** to the hub map (see `decisions/009-arcore-manual-alignment.md`), optional camera/IMU streaming, hub anchor overlay in AR.
+- **Not in this POC:** Hub-side visual relocalization of the phone camera (removed after cross-sensor matching proved unreliable). No TLS/auth on rosbridge — **trusted LAN only**; see `docs/privacy-poc.md`.
+
+---
+
 ## Architecture
 
 | Component | Role |
@@ -48,14 +56,16 @@ Away from the hub, the glasses switch to mobile mode — a lightweight HUD power
 ```
 Pri4L/
 ├── README.md
+├── CHANGELOG.md
 ├── roadmap.md
+├── docs/
+│   └── privacy-poc.md              # POC privacy & network boundary
 ├── setup.sh                        # Full install from clean Ubuntu 22.04
 ├── launch_hub.sh                   # Start hub (RealSense + RTAB-Map + rosbridge)
-├── launch_phone_localizer.sh       # Phone relocalization (standalone)
 ├── launch_spatial_query.sh         # LLM spatial query service
 ├── publish_test_anchors.sh         # Test anchor publisher for AR overlay
 ├── spatial_query.py                # Spatial query ROS2 node (Ollama)
-├── decisions/                      # Numbered design decision docs (001-007)
+├── decisions/                      # Numbered design decision docs (001–009)
 ├── android/                        # Phone client app (Kotlin, Jetpack Compose)
 ├── client/
 │   └── test.html                   # Browser WebSocket test client
@@ -77,17 +87,10 @@ bash setup.sh
 bash launch_hub.sh              # Resume mapping from existing database
 bash launch_hub.sh --new-map    # Start a fresh map
 bash launch_hub.sh --localize   # Lock map, localize only
-bash launch_hub.sh --with-phone # Also start phone relocalization
 bash launch_hub.sh --help       # Show all options
 ```
 
-### Phone localizer (standalone)
-
-```bash
-# If the hub is already running and you want to add phone relocalization
-bash launch_phone_localizer.sh
-bash launch_phone_localizer.sh --help
-```
+Phone pose in the hub map uses **ARCore on the device** after you **Align** in the app (see `decisions/009-arcore-manual-alignment.md`). There is **no** separate hub-side phone relocalizer process.
 
 ### Spatial query service
 
@@ -104,16 +107,30 @@ ros2 topic echo /hub/response
 
 ### Phone client app
 
-Open `android/` in Android Studio. Build and run on a phone or emulator.
+Open `android/` in Android Studio. Build and run on a **physical device** (ARCore recommended for AR mode).
 
-1. Enter the hub's IP address and port 9090
-2. Tap **Connect** — status dot turns green
-3. Toggle **IMU** and **Camera** to start streaming sensor data to the hub
-4. Pose updates appear when the hub relocalizes the phone's camera
+1. Enter the hub’s IP address and port **9090**.
+2. Tap **Connect** — status shows **Connected** when the WebSocket is up.
+3. Optional: toggle **IMU** or **Camera** to stream sensor data to the hub.
+4. For AR: enable **ARCore**, wait until tracking is OK, then **Align** at the hub depth camera (see on-screen instructions). Pose and anchor overlay use the **hub map frame** after alignment.
+
+Use **Data & privacy** in the app for a short POC summary. Full notes: `docs/privacy-poc.md`.
 
 ### Browser test client
 
 Open `client/test.html` in a browser. Enter the hub address and click Connect.
+
+---
+
+## Privacy & network (POC)
+
+The hub exposes **rosbridge** on your LAN **without encryption or authentication** by default. Use a **trusted network** or isolate the hub. Read **`docs/privacy-poc.md`** before demoing outside a personal lab.
+
+### Threat model (POC)
+
+- **LAN:** Any device on the same network can reach the hub’s open ports (e.g. rosbridge) unless you firewall or VLAN-isolate.
+- **Physical:** Anyone with access to the hub machine can read the RTAB-Map database and logs on disk.
+- **Transport:** WebSocket traffic is **not** TLS-terminated in this repo; do not expose the hub to the public internet as-is.
 
 ---
 
