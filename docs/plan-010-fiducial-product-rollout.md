@@ -33,6 +33,8 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 
 ## 3. Phases and gates
 
+**Gate status (G0–G5):** maintain the **single** [gate table in `docs/PROGRAM_STATUS.md`](PROGRAM_STATUS.md). Update that file when a gate starts or passes—do **not** duplicate a second status table here.
+
 ### Phase 0 — Product + interface freeze (paper)
 
 **Deliverables**

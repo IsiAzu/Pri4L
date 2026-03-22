@@ -12,6 +12,8 @@ Open source prototype for a hub-and-spoke AR architecture. A fixed room-based hu
 - **Phone (Track B):** Android app under `android/` — **ARCore** for 6DOF, **manual one-time alignment** to the hub map (see `decisions/009-arcore-manual-alignment.md`), optional camera/IMU streaming, hub anchor overlay in AR.
 - **Not in this POC:** Hub-side visual relocalization of the phone camera (removed after cross-sensor matching proved unreliable). No TLS/auth on rosbridge — **trusted LAN only**; see `docs/privacy-poc.md`.
 
+**Program status** (workstreams, all ADRs **001–010**, 010 gates): [`docs/PROGRAM_STATUS.md`](docs/PROGRAM_STATUS.md).
+
 ---
 
 ## Architecture
@@ -59,6 +61,7 @@ Pri4L/
 ├── CHANGELOG.md
 ├── roadmap.md
 ├── docs/
+│   ├── PROGRAM_STATUS.md           # Workstreams, ADR index, 010 gate status
 │   ├── privacy-poc.md              # POC privacy & network boundary
 │   └── plan-010-fiducial-product-rollout.md  # Phased plan for decision 010
 ├── setup.sh                        # Full install from clean Ubuntu 22.04

@@ -18,6 +18,8 @@ Living document. Updated as architecture decisions are made and milestones are r
 | LLM answers spatial queries | AI integration baseline | Done |
 | Digital content anchored to real-world position | AR rendering pipeline — ARCore overlay + hub anchors | Done (phone POC); glasses Track A still open |
 
+**Operational status** (workstreams, ADR index, 010 gates): see [`docs/PROGRAM_STATUS.md`](docs/PROGRAM_STATUS.md). **Canonical decisions** remain under [`decisions/`](decisions/).
+
 ---
 
 ## Phase 1 — Hub sensing (complete)
@@ -37,6 +39,8 @@ Establish persistent spatial memory on the hub. All subsequent phases depend on 
 ---
 
 ## Phase 2 — Client connection — hybrid architecture (current)
+
+**Track B (phone) POC** is **done** (ARCore + **009**). **Active engineering** includes **010** (hub-integrated fiducial product alignment) and **Track A** (INMO / glasses) when hardware is ready. **004** (network) remains **open** before final hub↔client link story.
 
 Connect a client device to the hub's spatial map. Two parallel tracks. Pursue Track A first; fall back to Track B if blocked.
 
