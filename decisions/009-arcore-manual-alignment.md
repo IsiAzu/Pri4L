@@ -72,3 +72,7 @@ This is acceptable for rendering 5cm AR cubes at hub-defined positions. For high
 - Alignment only needs to happen once per AR session
 - Hub launch script is simpler (no phone-specific processes)
 - Works from any position/angle in the room after alignment (ARCore handles all tracking)
+
+## See also
+
+- **010 — Hub-integrated fiducial alignment (product):** product direction for **fiducial on the hub chassis**, **intermittent** display, and **manufacturing-defined** tag-to-sensor extrinsics (`decisions/010-hub-integrated-fiducial-alignment.md`).

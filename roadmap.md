@@ -71,7 +71,7 @@ The 20ms motion-to-photon constraint is non-negotiable. Anything that touches he
 3. ~~ARCore overlay — hub anchor positions on phone camera feed~~ (done — `android/` + `publish_test_anchors.sh`)
 4. ~~Headless pipeline~~ — superseded by integrated AR path above
 
-**Next (Track B):** polish (alignment UX, AprilTag), then port lessons to **Track A** (INMO / Unity).
+**Next (Track B):** product alignment UX per **`decisions/010-hub-integrated-fiducial-alignment.md`** (hub-integrated fiducial, intermittent display); engineering may still use **printed AprilTag** on the bench. Then port lessons to **Track A** (INMO / Unity).
 
 **Note:** Phone-as-client directly validates the personal bridge component and produces a legible demo without glasses hardware. Point phone at desk, see hub-placed anchor floating above correct object. The phone bridge is also critical for mobile mode (decision 007) — this app is a stepping stone toward that.
 

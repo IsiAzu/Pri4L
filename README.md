@@ -65,7 +65,7 @@ Pri4L/
 ├── launch_spatial_query.sh         # LLM spatial query service
 ├── publish_test_anchors.sh         # Test anchor publisher for AR overlay
 ├── spatial_query.py                # Spatial query ROS2 node (Ollama)
-├── decisions/                      # Numbered design decision docs (001–009)
+├── decisions/                      # Numbered design decision docs (001–010)
 ├── android/                        # Phone client app (Kotlin, Jetpack Compose)
 ├── client/
 │   └── test.html                   # Browser WebSocket test client
