@@ -97,6 +97,8 @@ Until metrics exist, prefer **tracking health + user gesture** over aggressive a
 1. **One-pager — hub alignment UX:** States (idle / aligning / tracking OK / recovery), **when** the hub surface shows a pattern, and **user actions** per state.
 2. **Interface register update:** `tag_frame → hub_frame` stored vs measured; **client** observation pipeline; **optional** hub-side cross-check (future).
 
+**Implementation plan (phased gates, BOM, risks):** `docs/plan-010-fiducial-product-rollout.md`.
+
 ---
 
 ## Open questions

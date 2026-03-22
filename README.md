@@ -59,7 +59,8 @@ Pri4L/
 ├── CHANGELOG.md
 ├── roadmap.md
 ├── docs/
-│   └── privacy-poc.md              # POC privacy & network boundary
+│   ├── privacy-poc.md              # POC privacy & network boundary
+│   └── plan-010-fiducial-product-rollout.md  # Phased plan for decision 010
 ├── setup.sh                        # Full install from clean Ubuntu 22.04
 ├── launch_hub.sh                   # Start hub (RealSense + RTAB-Map + rosbridge)
 ├── launch_spatial_query.sh         # LLM spatial query service

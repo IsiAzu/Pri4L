@@ -13,3 +13,4 @@ All notable changes to this repository are documented here. Dates use ISO 8601.
 
 - `docs/privacy-poc.md` — POC-scope privacy and network boundary notes.
 - `decisions/010-hub-integrated-fiducial-alignment.md` — product direction: hub as fiducial, intermittent calibration display, manufacturing extrinsics.
+- `docs/plan-010-fiducial-product-rollout.md` — phased rollout plan, gates, BOM deltas, risks for decision 010.
