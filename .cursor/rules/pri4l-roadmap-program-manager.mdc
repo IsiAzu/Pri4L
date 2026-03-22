@@ -1,0 +1,13 @@
+---
+description: Pri4L — roadmap-program-manager skill for plan consolidation
+alwaysApply: true
+---
+
+# Pri4L — roadmap / plan consolidation
+
+When the user asks to **consolidate**, **organize**, **reconcile**, **prioritize**, or **project-manage** the **roadmap**, **implementation plans**, **phased gates**, or **milestones** (including cross-checking `roadmap.md`, `docs/plan-*.md`, and `decisions/`):
+
+1. **Read first:** `~/.cursor/skills/roadmap-program-manager/SKILL.md` (expand `~` to the user home path).
+2. **Follow** that skill’s **order of operations** and **output formats** unless the user specifies otherwise.
+
+For unrelated tasks, do **not** treat this as a request to run the full program-management workflow.
