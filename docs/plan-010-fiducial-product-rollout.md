@@ -2,6 +2,8 @@
 
 This document turns **decision 010** and the cross-domain VP review into a **phased engineering plan**: gates, workstreams, BOM deltas, and risks. It is a **living plan**—update as gates pass.
 
+**Naming:** Steps **010-P0** … **010-P5** are **only** this alignment rollout. **[`roadmap.md`](../roadmap.md) Roadmap Phases 1–8** are the separate program-wide timeline (e.g. Roadmap Phase 4 = anchor layer).
+
 ---
 
 ## 1. Goal and scope
@@ -16,7 +18,7 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 **Out of scope for this plan’s first release** (unless promoted)
 
 - TLS/auth on rosbridge (parallel security track).
-- Full **anchor persistence** product layer (Phase 4 roadmap).
+- Full **anchor persistence** product layer (Roadmap Phase 4).
 - Replacing **009** manual POC on day one—**bench** may keep **printed AprilTag** until hub face exists.
 
 ---
@@ -27,15 +29,15 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 | --- | --- |
 | Decision 010 accepted | Done |
 | Decision 009 (ARCore + manual align) working POC | Done |
-| Interface register draft (`tag→hub`, client pipeline) | To write (Phase 0) |
+| Interface register draft (`tag→hub`, client pipeline) | To write (010-P0) |
 
 ---
 
-## 3. Phases and gates
+## 3. Steps and gates (010-P0–P5)
 
 **Gate status (G0–G5):** maintain the **single** [gate table in `docs/PROGRAM_STATUS.md`](PROGRAM_STATUS.md). Update that file when a gate starts or passes—do **not** duplicate a second status table here.
 
-### Phase 0 — Product + interface freeze (paper)
+### 010-P0 — Product + interface freeze (paper)
 
 **Deliverables**
 
@@ -47,7 +49,7 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 
 ---
 
-### Phase 1 — Display technology down-select (prototype)
+### 010-P1 — Display technology down-select (prototype)
 
 **Objective:** Pick **V1 display path** among **emissive (LCD/OLED)**, **e-paper**, **static graphic behind glass** (no dynamic pattern), or **hybrid** (e.g. static ring + emissive center).
 
@@ -63,7 +65,7 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 
 ---
 
-### Phase 2 — Extrinsics and manufacturing strategy
+### 010-P2 — Extrinsics and manufacturing strategy
 
 **Objective:** **`T_tag_hub`** is **repeatable** unit-to-unit and **stable** over **thermal** and **life**.
 
@@ -78,7 +80,7 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 
 ---
 
-### Phase 3 — Hub software + firmware
+### 010-P3 — Hub software + firmware
 
 **Objective:** Hub can **render** fiducial **on demand**, with **brightness/duration** limits; optional **verify** pass using **existing** RGB stream.
 
@@ -93,13 +95,13 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 
 ---
 
-### Phase 4 — Client software (phone → glasses)
+### 010-P4 — Client software (phone → glasses)
 
 **Objective:** Replace **dependence on manual “stand at D435”** with **observe hub tag** flow **when** hub face is available.
 
 **Activities**
 
-- **Phone:** **Detect** tag in **camera** stream; **SolvePnP** or ARCore **hit-test** + tag; compute **align** transform; **state UI** per Phase 0.
+- **Phone:** **Detect** tag in **camera** stream; **SolvePnP** or ARCore **hit-test** + tag; compute **align** transform; **state UI** per **010-P0**.
 - **Intermittent** policy: **onboarding**, **recovery**, **user refine** — **no** flash on **Wi‑Fi** alone.
 - **Glasses (Track A):** same **math**; **FOV** and **distance** constraints from **G1**; **latency** budget for **decode**.
 
@@ -107,7 +109,7 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 
 ---
 
-### Phase 5 — Integration, RF, and ship bar
+### 010-P5 — Integration, RF, and ship bar
 
 **Objective:** **Product** quality in **real home** conditions.
 
@@ -179,7 +181,7 @@ This document turns **decision 010** and the cross-domain VP review into a **pha
 G0 (paper) → G1 (display/CV) → G2 (extrinsics/mfg) → G3 (hub SW) → G4 (client E2E) → G5 (field + RF)
 ```
 
-**Parallel** allowed: **Phase 0** with **early** **Phase 1** **mockups**; **Phase 0 UX** with **009** **printed** **tag** **bench** **tests** to **de-risk** **CV** **before** **hub** **face** **exists**.
+**Parallel** allowed: **010-P0** with **early 010-P1** **mockups**; **010-P0 UX** with **009** **printed** **tag** **bench** **tests** to **de-risk** **CV** **before** **hub** **face** **exists**.
 
 ---
 

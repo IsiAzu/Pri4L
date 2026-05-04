@@ -50,7 +50,7 @@ Status vocabulary: **Done** | **Active** | **Planned** | **Blocked** | **N/A**.
 
 ## Decision 010 — gate status
 
-Live program: [`plan-010-fiducial-product-rollout.md`](plan-010-fiducial-product-rollout.md). **Roadmap “Phase 1–8”** and **plan-010 “Phase 0–5”** are different namespaces—the latter is **only** the 010 alignment program.
+Live program: [`plan-010-fiducial-product-rollout.md`](plan-010-fiducial-product-rollout.md). **Roadmap Phases 1–8** ([`roadmap.md`](../roadmap.md)) and **010-P0–P5** (this plan’s steps) use **different IDs** by design.
 
 | Gate | Name | Status |
 |------|------|--------|

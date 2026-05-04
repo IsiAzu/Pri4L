@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. Dates use ISO 8601.
 
 ## [Unreleased]
 
+### Changed
+
+- **Terminology:** Alignment rollout steps in `docs/plan-010-fiducial-product-rollout.md` are named **010-P0–P5** to avoid clashing with **Roadmap Phases 1–8** in `roadmap.md`; both files state the distinction explicitly.
+
 ### Fixed
 
 - README and roadmap aligned with **ARCore + manual alignment** (decision 009): removed references to deleted phone localizer scripts and obsolete branch names.

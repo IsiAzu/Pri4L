@@ -63,7 +63,7 @@ Pri4L/
 ├── docs/
 │   ├── PROGRAM_STATUS.md           # Workstreams, ADR index, 010 gate status
 │   ├── privacy-poc.md              # POC privacy & network boundary
-│   └── plan-010-fiducial-product-rollout.md  # Phased plan for decision 010
+│   └── plan-010-fiducial-product-rollout.md  # Decision 010: steps 010-P0–P5, gates G0–G5 (not Roadmap Phases 1–8)
 ├── setup.sh                        # Full install from clean Ubuntu 22.04
 ├── launch_hub.sh                   # Start hub (RealSense + RTAB-Map + rosbridge)
 ├── launch_spatial_query.sh         # LLM spatial query service

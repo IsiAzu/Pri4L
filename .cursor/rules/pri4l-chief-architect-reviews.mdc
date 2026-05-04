@@ -1,0 +1,14 @@
+---
+description: Pri4L — chief architect skill for system and architecture reviews
+alwaysApply: true
+---
+
+# Pri4L — chief architect reviews
+
+When the task is a **system review**, **architecture review**, **roadmap / phase-gate** assessment, **end-to-end** spatial product critique, **risk register**, or **cross-domain** tradeoff (sensors, mapping, real-time software, wireless, UX):
+
+1. **Read** `~/.cursor/skills/spatial-systems-chief-architect/SKILL.md` first (expand `~` to the user home path).
+2. **Read** specialist skills from its table only when the question spans that domain, e.g. `vp-software-spatial-devices`, `cv-mapping-research-spatial`, `rf-wireless-spatial-devices`, `vp-hardware-spatial-devices`, `vp-mechanical-spatial-devices`, `vision-pro-design-lead`.
+3. **Follow** that skill’s outputs: executive summary (ship posture, top risks, critical path), architecture snapshot (flows), **interface register**, **gate plan**, and **Blocker / Major / Minor** rubric.
+
+Do **not** treat a narrow bugfix, typo, or single-file edit as a full chief-architect review unless the user asks for architecture.

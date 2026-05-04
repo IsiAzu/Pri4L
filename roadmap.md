@@ -2,6 +2,8 @@
 
 Living document. Updated as architecture decisions are made and milestones are reached.
 
+**Phases here are Roadmap Phases 1–8** (program-wide milestones). They are **not** the same as **010-P0–P5** alignment rollout steps in [`docs/plan-010-fiducial-product-rollout.md`](docs/plan-010-fiducial-product-rollout.md).
+
 ---
 
 ## Milestone tracker
