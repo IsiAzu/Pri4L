@@ -51,6 +51,8 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html { scroll-behavior: smooth; }
+
         html, body { background-color: var(--bg-deep); }
 
         body {
@@ -149,6 +151,30 @@
             margin-bottom: 1rem;
             color: var(--text-main);
             letter-spacing: -0.01em;
+        }
+
+        .about {
+            scroll-margin-top: 80px;
+        }
+
+        .about .col-label {
+            display: block;
+            margin-bottom: 24px;
+        }
+
+        .about-body {
+            font-size: clamp(1rem, 1.6vw, 1.15rem);
+            max-width: 680px;
+            color: var(--text-main);
+            font-weight: 300;
+            line-height: 1.65;
+            margin-bottom: 28px;
+        }
+
+        .about-links {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
         .diagram-section { text-align: center; }
@@ -534,6 +560,7 @@
             <div class="cta-group">
                 <a href="https://github.com/IsiAzu/Pri4L" class="btn">View Repo</a>
                 <a href="https://github.com/IsiAzu/Pri4L#readme" class="btn">Read README</a>
+                <a href="#about" class="btn">About</a>
             </div>
         </div>
 
@@ -603,6 +630,21 @@
                 </foreignObject>
 
             </svg>
+        </section>
+
+        <section id="about" class="about">
+            <span class="col-label">About</span>
+            <p class="about-body">
+                I'm a Product Designer at Meta working on AR and wearables, with
+                recent contributions to Ray-Ban Meta Display. Before Meta, I was
+                Product Design Lead at Magic Leap (2016&ndash;2019), where I was
+                awarded six US patents on spatial interface design. Pri4L is my
+                open-source personal infrastructure for hub-and-spoke AR.
+            </p>
+            <div class="about-links">
+                <a href="https://github.com/IsiAzu" class="btn">GitHub</a>
+                <a href="https://www.linkedin.com/in/isiazu" class="btn">LinkedIn</a>
+            </div>
         </section>
 
         <section class="grid-2">
