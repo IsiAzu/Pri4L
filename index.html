@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Pri4L | Smart glasses anywhere. Spatial intelligence at home.</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,7 +51,12 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        html { scroll-behavior: smooth; }
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+            overflow-x: clip;
+            max-width: 100%;
+        }
 
         html, body { background-color: var(--bg-deep); }
 
@@ -60,20 +65,30 @@
             font-family: 'DM Sans', system-ui, sans-serif;
             line-height: 1.5;
             overflow-x: hidden;
+            overflow-x: clip;
             position: relative;
+            max-width: 100%;
         }
 
+        /* 100vw is wider than the layout width when a vertical scrollbar is present,
+           which causes horizontal overflow on mobile; use the fixed inset box instead. */
         #lava-canvas {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            inset: 0;
+            width: 100%;
+            height: 100%;
             z-index: 0;
             pointer-events: none;
+            /* Own compositor layer — reduces iOS flicker when scrolling over fixed canvas */
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
         }
 
-        .content { position: relative; z-index: 2; }
+        .content {
+            position: relative;
+            z-index: 2;
+            isolation: isolate;
+        }
 
         .hero {
             min-height: 100vh;
@@ -177,7 +192,10 @@
             flex-wrap: wrap;
         }
 
-        .diagram-section { text-align: center; }
+        .diagram-section {
+            text-align: center;
+            min-width: 0;
+        }
 
         .section-label {
             font-family: 'DM Mono', monospace;
@@ -190,6 +208,8 @@
         }
 
         svg.diagram {
+            display: block;
+            width: 100%;
             max-width: 100%;
             height: auto;
             overflow: visible;
@@ -201,41 +221,27 @@
         .svg-stroke-primary { stroke: var(--text-primary); opacity: 0.40; }
         .svg-stroke-accent { stroke: var(--accent-cool); opacity: 0.65; }
 
-        /* Diagram boxes (rendered via SVG foreignObject so backdrop-blur works
-           against the lava field behind the SVG). */
-        .diagram-box {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
+        /* Native SVG nodes — foreignObject is unreliable on iOS Safari. */
+        .svg-diagram-card {
+            fill: var(--surface-overlay);
+            stroke: var(--border);
+            stroke-width: 1;
+        }
+
+        .svg-diagram-title {
+            fill: var(--text-main);
             font-family: 'Space Grotesk', system-ui, sans-serif;
-            text-align: center;
-            backdrop-filter: blur(var(--surface-blur));
-            -webkit-backdrop-filter: blur(var(--surface-blur));
-        }
-
-        .diagram-box--primary {
-            background: var(--surface-overlay);
-        }
-
-        .db-title {
             font-size: 13px;
             font-weight: 500;
-            color: var(--text-main);
             letter-spacing: -0.005em;
-            line-height: 1.2;
         }
 
-        .db-sub {
+        .svg-diagram-sub {
+            fill: var(--text-secondary);
+            font-family: 'Space Grotesk', system-ui, sans-serif;
             font-size: 11px;
             font-weight: 400;
-            color: var(--text-secondary);
             letter-spacing: -0.005em;
-            margin-top: 4px;
-            line-height: 1.2;
         }
 
         .grid-2 {
@@ -344,8 +350,8 @@
         /* Theme toggle button — top right, fixed position */
         #theme-toggle {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: max(20px, env(safe-area-inset-top, 0px));
+            right: max(20px, env(safe-area-inset-right, 0px));
             z-index: 100;
             padding: 8px 14px;
             border: none;
@@ -376,11 +382,12 @@
 
         #cc-panel {
             position: fixed;
-            top: 70px;
-            right: 20px;
+            top: max(70px, calc(20px + env(safe-area-inset-top, 0px) + 44px));
+            right: max(20px, env(safe-area-inset-right, 0px));
             z-index: 999;
-            width: 320px;
+            width: min(320px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
             max-height: calc(100vh - 100px);
+            max-height: calc(100dvh - 100px);
             overflow-y: auto;
             background: rgba(15, 15, 30, 0.92);
             backdrop-filter: blur(12px);
@@ -604,30 +611,24 @@
                      top boxes and the horizontal connection segment. -->
                 <text x="260" y="142" class="svg-text-secondary" text-anchor="middle" font-size="11" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="400" letter-spacing="-0.005em">WebSocket / ROS2</text>
 
-                <!-- HUB — backdrop-blurred HTML box via foreignObject so the lava
-                     field behind blurs through the rectangle, like the buttons. -->
-                <foreignObject x="240" y="190" width="160" height="100">
-                    <div xmlns="http://www.w3.org/1999/xhtml" class="diagram-box diagram-box--primary">
-                        <div class="db-title">AR Spatial Hub</div>
-                        <div class="db-sub">SLAM · LLM · Map</div>
-                    </div>
-                </foreignObject>
+                <!-- Hub — native SVG (foreignObject breaks on iOS Safari) -->
+                <g transform="translate(240, 190)">
+                    <rect class="svg-diagram-card" width="160" height="100" rx="4"/>
+                    <text x="80" y="48" text-anchor="middle" class="svg-diagram-title">AR Spatial Hub</text>
+                    <text x="80" y="70" text-anchor="middle" class="svg-diagram-sub">SLAM · LLM · Map</text>
+                </g>
 
-                <!-- GLASSES — moved inward to form a tight pair with Phone -->
-                <foreignObject x="140" y="40" width="120" height="78">
-                    <div xmlns="http://www.w3.org/1999/xhtml" class="diagram-box diagram-box--primary">
-                        <div class="db-title">Glasses</div>
-                        <div class="db-sub">thin client</div>
-                    </div>
-                </foreignObject>
+                <g transform="translate(140, 40)">
+                    <rect class="svg-diagram-card" width="120" height="78" rx="4"/>
+                    <text x="60" y="38" text-anchor="middle" class="svg-diagram-title">Glasses</text>
+                    <text x="60" y="58" text-anchor="middle" class="svg-diagram-sub">thin client</text>
+                </g>
 
-                <!-- PHONE — moved inward to form a tight pair with Glasses -->
-                <foreignObject x="340" y="40" width="120" height="78">
-                    <div xmlns="http://www.w3.org/1999/xhtml" class="diagram-box diagram-box--primary">
-                        <div class="db-title">Phone</div>
-                        <div class="db-sub">personal bridge</div>
-                    </div>
-                </foreignObject>
+                <g transform="translate(340, 40)">
+                    <rect class="svg-diagram-card" width="120" height="78" rx="4"/>
+                    <text x="60" y="38" text-anchor="middle" class="svg-diagram-title">Phone</text>
+                    <text x="60" y="58" text-anchor="middle" class="svg-diagram-sub">personal bridge</text>
+                </g>
 
             </svg>
         </section>
@@ -892,6 +893,17 @@
         const DEFAULTS = buildDefaults(currentTheme);
         const params = JSON.parse(JSON.stringify(DEFAULTS));
 
+        /** Touch-first / small screens: drive lava with device tilt, not finger/cursor. */
+        function useMotionForLava() {
+            if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return true;
+            if (navigator.maxTouchPoints > 0 && window.matchMedia('(max-width: 1024px)').matches) return true;
+            return false;
+        }
+
+        const motionLava = useMotionForLava();
+        let orientationListenerAttached = false;
+        let orientationActive = false;
+
         let W, H, dpr;
         let renderW, renderH;
 
@@ -901,6 +913,16 @@
 
         let blobs = [];
         let t = 0;
+
+        /* Pause lava redraw while scrolling — iOS repaints fixed canvas vs scroll layer and flickers. */
+        let isScrolling = false;
+        let scrollEndTimer = 0;
+        function onScroll() {
+            isScrolling = true;
+            clearTimeout(scrollEndTimer);
+            scrollEndTimer = setTimeout(function() { isScrolling = false; }, 140);
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
 
         // Static noise pattern — generated once, sampled each frame
         // This eliminates per-frame flicker that's hard on photosensitive readers
@@ -979,8 +1001,10 @@
             // Each field cell maps to (renderW / W) × params.pixelSize render-space pixels.
             downscaleFactor = Math.max(2, Math.round(params.pixelSize * (renderW / W)));
 
-            targetX = renderW * 0.1;
-            targetY = renderH * 0.1;
+            if (!(motionLava && orientationActive)) {
+                targetX = renderW * 0.1;
+                targetY = renderH * 0.1;
+            }
 
             const r = params.radiusScale;
             blobs = [
@@ -997,23 +1021,72 @@
         resize();
         window.addEventListener('resize', resize);
 
-        window.addEventListener('mousemove', (e) => {
-            targetX = (e.clientX / W) * renderW;
-            targetY = (e.clientY / H) * renderH;
+        function mapOrientationToTarget(beta, gamma) {
+            const g = clamp((gamma != null ? gamma : 0), -50, 50) / 50;
+            const bRaw = beta != null ? beta : 90;
+            const b = clamp(bRaw - 90, -50, 50) / 50;
+            targetX = renderW * (0.5 + g * 0.38);
+            targetY = renderH * (0.5 + b * 0.32);
             pointerActive = true;
-        });
+        }
 
-        window.addEventListener('touchmove', (e) => {
-            if (e.touches && e.touches[0]) {
-                targetX = (e.touches[0].clientX / W) * renderW;
-                targetY = (e.touches[0].clientY / H) * renderH;
-                pointerActive = true;
+        function onDeviceOrientation(e) {
+            if (!motionLava || !orientationActive) return;
+            mapOrientationToTarget(e.beta, e.gamma);
+        }
+
+        function attachOrientationListener() {
+            if (orientationListenerAttached) return;
+            orientationListenerAttached = true;
+            window.addEventListener('deviceorientation', onDeviceOrientation, true);
+        }
+
+        if (motionLava) {
+            if (typeof DeviceOrientationEvent !== 'undefined') {
+                var orientGestureOpts = { capture: true, passive: true };
+                function removeOrientGestureHandlers() {
+                    document.removeEventListener('touchend', onFirstGestureForOrient, orientGestureOpts);
+                    document.removeEventListener('click', onFirstGestureForOrient, orientGestureOpts);
+                }
+                function onFirstGestureForOrient() {
+                    removeOrientGestureHandlers();
+                    DeviceOrientationEvent.requestPermission()
+                        .then(function(state) {
+                            if (state === 'granted') {
+                                orientationActive = true;
+                                attachOrientationListener();
+                            }
+                        })
+                        .catch(function() { /* denied */ });
+                }
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    /* iOS 13+: permission must run inside a user gesture. */
+                    document.addEventListener('touchend', onFirstGestureForOrient, orientGestureOpts);
+                    document.addEventListener('click', onFirstGestureForOrient, orientGestureOpts);
+                } else {
+                    orientationActive = true;
+                    attachOrientationListener();
+                }
             }
-        }, { passive: true });
+        } else {
+            window.addEventListener('mousemove', function(e) {
+                targetX = (e.clientX / W) * renderW;
+                targetY = (e.clientY / H) * renderH;
+                pointerActive = true;
+            });
 
-        window.addEventListener('mouseleave', () => {
-            pointerActive = false;
-        });
+            window.addEventListener('touchmove', function(e) {
+                if (e.touches && e.touches[0]) {
+                    targetX = (e.touches[0].clientX / W) * renderW;
+                    targetY = (e.touches[0].clientY / H) * renderH;
+                    pointerActive = true;
+                }
+            }, { passive: true });
+
+            window.addEventListener('mouseleave', function() {
+                pointerActive = false;
+            });
+        }
 
         function step() {
             t += 1;
@@ -1159,7 +1232,7 @@
 
         function loop(now) {
             const frameMs = 1000 / params.fps;
-            if (!lastFrame || now - lastFrame >= frameMs) {
+            if (!isScrolling && (!lastFrame || now - lastFrame >= frameMs)) {
                 step();
                 lastFrame = now;
             }
