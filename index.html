@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pri4L | Smart glasses anywhere. Spatial intelligence at home.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* === LIGHT THEME (default) === */
+            --bg-deep: #F8F6F0;
+            --accent-purple: #E0DDD0;
+            --accent-cool: #4F8C86;
+            --accent-surface: rgba(79, 140, 134, 0.45);
+            --accent-surface-hover: rgba(79, 140, 134, 0.60);
+            --text-main: #1B1B3A;
+            --text-primary: #1B1B3A;
+            --text-secondary: rgba(27, 27, 58, 0.65);
+            --text-dim: rgba(27, 27, 58, 0.65);
+            --border: rgba(27, 27, 58, 0.12);
+
+            /* Button surface tokens — used by .btn and .badge */
+            --surface-overlay: rgba(27, 27, 58, 0.06);
+            --surface-overlay-hover: rgba(27, 27, 58, 0.09);
+            --surface-text: #1B1B3A;
+            --surface-blur: 4px;
+        }
+
+        [data-theme="dark"] {
+            --bg-deep: #1B1B3A;
+            --accent-purple: #2E1A47;
+            --accent-cool: #87C5BE;
+            --accent-surface: rgba(135, 197, 190, 0.45);
+            --accent-surface-hover: rgba(135, 197, 190, 0.65);
+            --text-main: #FFFFFF;
+            --text-primary: #FFFFFF;
+            --text-secondary: rgba(255, 255, 255, 0.60);
+            --text-dim: rgba(255, 255, 255, 0.60);
+            --border: rgba(255, 255, 255, 0.12);
+
+            --surface-overlay: rgba(255, 255, 255, 0.06);
+            --surface-overlay-hover: rgba(255, 255, 255, 0.09);
+            --surface-text: #FFFFFF;
+            --surface-blur: 4px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { background-color: var(--bg-deep); }
+
+        body {
+            color: var(--text-main);
+            font-family: 'DM Sans', system-ui, sans-serif;
+            line-height: 1.5;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        #lava-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .content { position: relative; z-index: 2; }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 80px 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .wordmark {
+            font-family: 'DM Mono', monospace;
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 0.18em;
+            color: var(--text-dim);
+            margin-bottom: 2.5rem;
+        }
+
+        .thesis {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            font-size: clamp(2.2rem, 6.5vw, 4rem);
+            line-height: 1.05;
+            font-weight: 500;
+            margin-bottom: 3rem;
+            max-width: 820px;
+            letter-spacing: -0.025em;
+        }
+
+        .cta-group { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            color: var(--surface-text);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            font-family: 'DM Mono', monospace;
+            transition: background 0.2s;
+            text-transform: uppercase;
+            background: var(--surface-overlay);
+            backdrop-filter: blur(var(--surface-blur));
+            -webkit-backdrop-filter: blur(var(--surface-blur));
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: var(--surface-overlay-hover);
+        }
+
+        .btn--primary {
+            background: var(--accent-surface);
+            color: var(--text-primary);
+        }
+
+        .btn--primary:hover {
+            background: var(--accent-surface-hover);
+        }
+
+        section {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 80px 24px;
+        }
+
+        .argument p {
+            font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+            max-width: 680px;
+            color: var(--text-main);
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        .argument p .lead {
+            display: block;
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
+
+        .diagram-section { text-align: center; }
+
+        .section-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-dim);
+            margin-bottom: 48px;
+            display: block;
+        }
+
+        svg.diagram {
+            max-width: 100%;
+            height: auto;
+            overflow: visible;
+        }
+
+        /* SVG text and stroke colors that swap with theme. */
+        .svg-text-secondary { fill: var(--text-secondary); }
+        .svg-text-accent { fill: var(--accent-cool); opacity: 0.85; }
+        .svg-stroke-primary { stroke: var(--text-primary); opacity: 0.40; }
+        .svg-stroke-accent { stroke: var(--accent-cool); opacity: 0.65; }
+
+        /* Diagram boxes (rendered via SVG foreignObject so backdrop-blur works
+           against the lava field behind the SVG). */
+        .diagram-box {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            text-align: center;
+            backdrop-filter: blur(var(--surface-blur));
+            -webkit-backdrop-filter: blur(var(--surface-blur));
+        }
+
+        .diagram-box--primary {
+            background: var(--surface-overlay);
+        }
+
+        .db-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+            letter-spacing: -0.005em;
+            line-height: 1.2;
+        }
+
+        .db-sub {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            letter-spacing: -0.005em;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+        }
+
+        .col-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border: none;
+            border-radius: 4px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            background: var(--accent-surface);
+            backdrop-filter: blur(var(--surface-blur));
+            -webkit-backdrop-filter: blur(var(--surface-blur));
+        }
+
+        .badge-dim {
+            color: var(--text-secondary);
+            background: var(--surface-overlay);
+            backdrop-filter: blur(var(--surface-blur));
+            -webkit-backdrop-filter: blur(var(--surface-blur));
+        }
+
+        ul { list-style: none; }
+
+        li {
+            margin-bottom: 12px;
+            padding-left: 22px;
+            position: relative;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--accent-cool);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .phase-2 li::before { color: var(--text-secondary); }
+
+        .stack-text {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: var(--text-dim);
+        }
+
+        .stack-text span { color: var(--text-main); }
+
+        footer {
+            padding: 40px 24px;
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            position: relative;
+            z-index: 2;
+        }
+
+        footer a {
+            color: var(--text-main);
+            text-decoration: none;
+            margin-left: 20px;
+            letter-spacing: 0.05em;
+            transition: color 0.2s;
+        }
+
+        footer a:hover { color: var(--accent-cool); }
+
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; gap: 40px; }
+            .hero { min-height: auto; padding: 100px 24px 80px; }
+            footer { flex-direction: column; gap: 20px; text-align: center; }
+            footer a { margin: 0 10px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #lava-canvas { display: none; }
+        }
+
+        /* Theme toggle button — top right, fixed position */
+        #theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            background: var(--surface-overlay);
+            backdrop-filter: blur(var(--surface-blur));
+            -webkit-backdrop-filter: blur(var(--surface-blur));
+            color: var(--surface-text);
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #theme-toggle:hover {
+            background: var(--surface-overlay-hover);
+        }
+
+        /* ============================================
+           CONTROL CENTER STYLES
+           ============================================ */
+        #cc-toggle {
+            display: none;
+        }
+
+        #cc-panel {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 999;
+            width: 320px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            background: rgba(15, 15, 30, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: white;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        #cc-panel.cc-hidden {
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+        }
+
+        .cc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .cc-title {
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        #cc-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+
+        #cc-close:hover { color: var(--text-primary); }
+
+        .cc-body {
+            padding: 8px 16px 16px;
+        }
+
+        .cc-section {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .cc-section:last-child {
+            border-bottom: none;
+        }
+
+        .cc-section-label {
+            font-size: 9px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .cc-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 44px;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .cc-row label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .cc-row input[type="range"] {
+            width: 100%;
+            height: 14px;
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .cc-row input[type="range"]::-webkit-slider-runnable-track {
+            height: 2px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 1px;
+        }
+
+        .cc-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #586CA5;
+            border: 1px solid white;
+            margin-top: -5px;
+            cursor: pointer;
+        }
+
+        .cc-row input[type="range"]::-moz-range-track {
+            height: 2px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 1px;
+        }
+
+        .cc-row input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #586CA5;
+            border: 1px solid white;
+            cursor: pointer;
+        }
+
+        .cc-val {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .cc-row.cc-color {
+            grid-template-columns: 80px 1fr;
+        }
+
+        .cc-row.cc-color input[type="color"] {
+            width: 100%;
+            height: 28px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        .cc-reset-btn {
+            width: 100%;
+            padding: 8px 12px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.25);
+            color: var(--text-secondary);
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            margin-top: 6px;
+        }
+
+        .cc-reset-btn:hover {
+            background: rgba(135, 197, 190, 0.15);
+            color: var(--text-primary);
+            border-color: rgba(255,255,255,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <button id="theme-toggle" aria-label="Toggle dark/light theme">
+        <span class="theme-toggle-label">Dark</span>
+    </button>
+
+    <canvas id="lava-canvas"></canvas>
+
+    <div class="content">
+
+        <div class="hero">
+            <p class="wordmark">Pri4L</p>
+            <p class="thesis">Smart glasses anywhere.<br>Spatial intelligence at home.</p>
+            <div class="cta-group">
+                <a href="https://github.com/IsiAzu/Pri4L" class="btn btn--primary">View Repo</a>
+                <a href="https://github.com/IsiAzu/Pri4L#readme" class="btn">Read README</a>
+            </div>
+        </div>
+
+        <section class="argument">
+            <p>
+                <span class="lead">Mobility is not a feature if you're standing still.</span>
+                Commercial AR optimizes for the pocket — a compute puck with a beefy AI coprocessor, active cooling, and 5G. That's the right answer when you're moving. At home, in a fixed workspace, you're paying weight and thermal penalties for constraints that don't exist. Wall power removes every limit. The glasses become a lightweight, mobile-first display peripheral. The room becomes the brain that serves robust spatial experiences when in range.
+            </p>
+        </section>
+
+        <section class="diagram-section">
+            <span class="section-label">System Architecture</span>
+            <svg class="diagram" width="640" height="335" viewBox="0 -35 640 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- ORTHOGONAL ROUTING — connections route horizontal-then-vertical
+                     like circuit board traces. Each leg is its own polyline so we can
+                     keep the discrete-square dot pattern from earlier.
+                     The horizontal segment sits at y=160 to give the labels above it
+                     breathing room from both the top boxes and the hub. -->
+
+                <!-- GLASSES ↔ PHONE direct pairing: routes UP and over both boxes.
+                     This is the on-the-go / out-of-hub-range connection. Drawn first
+                     so the hub-routed connections render on top of it.
+                     Vertical legs run from y=40 up to y=-5 so the right-angle corners
+                     resolve cleanly with the dotted-square stroke pattern. -->
+                <polyline points="200,40 200,-5 400,-5 400,40"
+                          class="svg-stroke-primary" stroke-width="3"
+                          stroke-linecap="square" stroke-linejoin="miter"
+                          stroke-dasharray="0 10" fill="none"/>
+
+                <text x="300" y="-12" class="svg-text-secondary" text-anchor="middle"
+                      font-size="11" font-family="'Space Grotesk', system-ui, sans-serif"
+                      font-weight="500" letter-spacing="-0.005em">BLE / Direct pair</text>
+
+                <!-- HUB ↔ GLASSES: hub top → up → left → glasses bottom -->
+                <polyline points="320,190 320,160 200,160 200,118"
+                          class="svg-stroke-primary" stroke-width="3"
+                          stroke-linecap="square" stroke-linejoin="miter"
+                          stroke-dasharray="0 10" fill="none"/>
+
+                <!-- Connection labels — placed in the breathing space between the
+                     top boxes and the horizontal connection segment. -->
+                <text x="260" y="142" class="svg-text-secondary" text-anchor="middle" font-size="11" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="400" letter-spacing="-0.005em">WebSocket / ROS2</text>
+
+                <!-- HUB — backdrop-blurred HTML box via foreignObject so the lava
+                     field behind blurs through the rectangle, like the buttons. -->
+                <foreignObject x="240" y="190" width="160" height="100">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="diagram-box diagram-box--primary">
+                        <div class="db-title">AR Spatial Hub</div>
+                        <div class="db-sub">SLAM · LLM · Map</div>
+                    </div>
+                </foreignObject>
+
+                <!-- GLASSES — moved inward to form a tight pair with Phone -->
+                <foreignObject x="140" y="40" width="120" height="78">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="diagram-box diagram-box--primary">
+                        <div class="db-title">Glasses</div>
+                        <div class="db-sub">thin client</div>
+                    </div>
+                </foreignObject>
+
+                <!-- PHONE — moved inward to form a tight pair with Glasses -->
+                <foreignObject x="340" y="40" width="120" height="78">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="diagram-box diagram-box--primary">
+                        <div class="db-title">Phone</div>
+                        <div class="db-sub">personal bridge</div>
+                    </div>
+                </foreignObject>
+
+            </svg>
+        </section>
+
+        <section class="grid-2">
+            <div>
+                <span class="col-label">What's Shipped</span>
+                <div class="badge">Phase 1 — Complete</div>
+                <ul>
+                    <li>Live depth feed via RealSense D435i</li>
+                    <li>ROS2 topic publishing</li>
+                    <li>Live map building via RTAB-Map</li>
+                    <li>Map survives restart and relocalizes</li>
+                    <li>Android client with ARCore alignment and anchor overlay</li>
+                </ul>
+            </div>
+            <div>
+                <span class="col-label">In Progress</span>
+                <div class="badge badge-dim">Phase 2</div>
+                <ul class="phase-2">
+                    <li>IMU access via Android SensorManager</li>
+                    <li>Android app streams camera to hub via RTSP or WebRTC</li>
+                    <li>Hub relocalization returns pose and anchor data</li>
+                    <li>360 degree room coverage</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="grid-2">
+            <div>
+                <span class="col-label">The Stack</span>
+                <p class="stack-text">
+                    <span>RealSense SDK</span> — hardware interface<br>
+                    <span>ROS2 Humble</span> — sensor middleware<br>
+                    <span>RTAB-Map</span> — spatial mapping<br>
+                    <span>Ollama (llama3.2)</span> — local LLM inference<br>
+                    <span>ARCore</span> — device-side 6DOF<br>
+                    <span>Kotlin / Jetpack Compose</span> — Android client<br>
+                    <span>rosbridge</span> — WebSocket bridge
+                </p>
+            </div>
+            <div>
+                <span class="col-label">The Process</span>
+                <p class="stack-text">
+                    <span>10 ADRs</span> — numbered design decisions<br>
+                    <span>Written threat model</span> — LAN, physical, transport<br>
+                    <span>Gated rollout</span> — phased plan with 010 gates<br>
+                    <span>Privacy POC</span> — documented boundary conditions
+                </p>
+            </div>
+        </section>
+
+        <footer>
+            <div>Built by Isi Azu</div>
+            <div>
+                <a href="https://github.com/IsiAzu/Pri4L">GitHub</a>
+                <a href="https://www.linkedin.com/in/isiazu" target="_blank">LinkedIn</a>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- ============================================
+         CONTROL CENTER — toggle with the gear button
+         ============================================ -->
+    <button id="cc-toggle" aria-label="Toggle control center">⚙</button>
+    <div id="cc-panel" class="cc-hidden">
+        <div class="cc-header">
+            <span class="cc-title">Control Center</span>
+            <button id="cc-close" aria-label="Close">×</button>
+        </div>
+
+        <div class="cc-body">
+
+            <div class="cc-section">
+                <div class="cc-section-label">Render</div>
+                <div class="cc-row">
+                    <label>FPS</label>
+                    <input type="range" id="cc-fps" min="2" max="30" step="1">
+                    <span class="cc-val" id="cc-fps-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Pixel size</label>
+                    <input type="range" id="cc-pixel" min="4" max="40" step="1">
+                    <span class="cc-val" id="cc-pixel-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Render scale</label>
+                    <input type="range" id="cc-rscale" min="30" max="100" step="5">
+                    <span class="cc-val" id="cc-rscale-v"></span>
+                </div>
+            </div>
+
+            <div class="cc-section">
+                <div class="cc-section-label">Field</div>
+                <div class="cc-row">
+                    <label>Falloff</label>
+                    <input type="range" id="cc-falloff" min="0.6" max="3.5" step="0.05">
+                    <span class="cc-val" id="cc-falloff-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Blur radius</label>
+                    <input type="range" id="cc-blur" min="0" max="12" step="1">
+                    <span class="cc-val" id="cc-blur-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Noise amp</label>
+                    <input type="range" id="cc-noise" min="0" max="40" step="1">
+                    <span class="cc-val" id="cc-noise-v"></span>
+                </div>
+            </div>
+
+            <div class="cc-section">
+                <div class="cc-section-label">Thresholds</div>
+                <div class="cc-row">
+                    <label>Ambient</label>
+                    <input type="range" id="cc-tA" min="0" max="1" step="0.01">
+                    <span class="cc-val" id="cc-tA-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Warm</label>
+                    <input type="range" id="cc-tW" min="0.1" max="2" step="0.01">
+                    <span class="cc-val" id="cc-tW-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Mid</label>
+                    <input type="range" id="cc-tM" min="0.2" max="3" step="0.01">
+                    <span class="cc-val" id="cc-tM-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Peak</label>
+                    <input type="range" id="cc-tP" min="0.3" max="4" step="0.01">
+                    <span class="cc-val" id="cc-tP-v"></span>
+                </div>
+            </div>
+
+            <div class="cc-section">
+                <div class="cc-section-label">Blobs</div>
+                <div class="cc-row">
+                    <label>Cursor pull</label>
+                    <input type="range" id="cc-cpull" min="0" max="0.2" step="0.005">
+                    <span class="cc-val" id="cc-cpull-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Drift speed</label>
+                    <input type="range" id="cc-drift" min="0" max="2.5" step="0.05">
+                    <span class="cc-val" id="cc-drift-v"></span>
+                </div>
+                <div class="cc-row">
+                    <label>Radius scale</label>
+                    <input type="range" id="cc-radscale" min="0.3" max="2.5" step="0.05">
+                    <span class="cc-val" id="cc-radscale-v"></span>
+                </div>
+            </div>
+
+            <div class="cc-section">
+                <div class="cc-section-label">Colors</div>
+                <div class="cc-row cc-color">
+                    <label>Background</label>
+                    <input type="color" id="cc-cBg">
+                </div>
+                <div class="cc-row cc-color">
+                    <label>Warm zone</label>
+                    <input type="color" id="cc-cWarm">
+                </div>
+                <div class="cc-row cc-color">
+                    <label>Mid zone</label>
+                    <input type="color" id="cc-cMid">
+                </div>
+                <div class="cc-row cc-color">
+                    <label>Peak zone</label>
+                    <input type="color" id="cc-cPeak">
+                </div>
+            </div>
+
+            <div class="cc-section">
+                <button id="cc-reset" class="cc-reset-btn">Reset to defaults</button>
+                <button id="cc-copy" class="cc-reset-btn">Copy values to clipboard</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const canvas = document.getElementById('lava-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ============================================
+        // PARAMS — mutable values controlled by Control Center.
+        // Two themes: light (default) and dark. Each theme has its own
+        // calibrated lava palette. Switching themes resets lava colors
+        // to the corresponding defaults, but leaves all other tunings
+        // (fps, falloff, thresholds, etc.) intact.
+        // ============================================
+        const THEMED_DEFAULTS = {
+            light: {
+                colBg:   [248, 246, 240],
+                colWarm: [200, 200, 215],
+                colMid:  [165, 195, 190],
+                colPeak: [80, 145, 140],
+            },
+            dark: {
+                colBg:   [27, 27, 58],
+                colWarm: [38, 83, 95],
+                colMid:  [47, 111, 107],
+                colPeak: [135, 197, 190],
+            },
+        };
+
+        function getInitialTheme() {
+            // Explicit user choice takes priority — they've toggled at least once
+            try {
+                const saved = localStorage.getItem('pri4l-theme');
+                if (saved === 'dark' || saved === 'light') return saved;
+            } catch (e) { /* localStorage blocked */ }
+            // Otherwise follow the OS / browser preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                return 'dark';
+            }
+            return 'light';
+        }
+
+        let currentTheme = getInitialTheme();
+        document.documentElement.setAttribute('data-theme', currentTheme);
+
+        const SHARED_DEFAULTS = {
+            fps:           16,
+            pixelSize:     33,
+            renderScale:   70,
+            falloff:       1.3,
+            blurRadius:    1,
+            noiseAmp:      29,
+            tAmbient:      0.1,
+            tWarm:         1.5,
+            tMid:          0.95,
+            tPeak:         2.47,
+            cursorPull:    0.045,
+            driftSpeed:    2,
+            radiusScale:   1.6,
+        };
+
+        function buildDefaults(theme) {
+            return Object.assign({}, SHARED_DEFAULTS, THEMED_DEFAULTS[theme]);
+        }
+
+        const DEFAULTS = buildDefaults(currentTheme);
+        const params = JSON.parse(JSON.stringify(DEFAULTS));
+
+        let W, H, dpr;
+        let renderW, renderH;
+
+        let targetX = 0;
+        let targetY = 0;
+        let pointerActive = false;
+
+        let blobs = [];
+        let t = 0;
+
+        // Static noise pattern — generated once, sampled each frame
+        // This eliminates per-frame flicker that's hard on photosensitive readers
+        // and gives a film-grain quality rather than digital-noise quality
+        let noisePattern = null;
+
+        function generateNoisePattern(w, h) {
+            const noise = new Float32Array(w * h);
+            for (let i = 0; i < noise.length; i++) {
+                // Triangular distribution — softer than uniform random
+                noise[i] = (Math.random() + Math.random() - 1);
+            }
+            return noise;
+        }
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+        function fieldExponential(distSq, radSq) {
+            return Math.exp(-Math.sqrt(distSq) / (Math.sqrt(radSq) * params.falloff));
+        }
+
+        function blurField(field, lw, lh, radius) {
+            const tmp = new Float32Array(lw * lh);
+            const out = new Float32Array(lw * lh);
+
+            for (let y = 0; y < lh; y++) {
+                for (let x = 0; x < lw; x++) {
+                    let sum = 0, count = 0;
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        const sx = x + dx;
+                        if (sx >= 0 && sx < lw) {
+                            sum += field[y * lw + sx];
+                            count++;
+                        }
+                    }
+                    tmp[y * lw + x] = sum / count;
+                }
+            }
+
+            for (let y = 0; y < lh; y++) {
+                for (let x = 0; x < lw; x++) {
+                    let sum = 0, count = 0;
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        const sy = y + dy;
+                        if (sy >= 0 && sy < lh) {
+                            sum += tmp[sy * lw + x];
+                            count++;
+                        }
+                    }
+                    out[y * lw + x] = sum / count;
+                }
+            }
+
+            return out;
+        }
+
+        // Target visual pixel size in CSS pixels on screen.
+        // The downscale factor is derived from this so chunk size stays
+        // consistent across viewport sizes (small windows and large monitors
+        // both get pixels that look ~params.pixelSize CSS pixels wide on screen).
+        let downscaleFactor = 7; // computed at resize, fallback for first render
+
+        function resize() {
+            W = window.innerWidth;
+            H = window.innerHeight;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const scale = params.renderScale / 100;
+            renderW = Math.floor(W * scale);
+            renderH = Math.floor(H * scale);
+            canvas.width = renderW;
+            canvas.height = renderH;
+            canvas.style.width = W + 'px';
+            canvas.style.height = H + 'px';
+
+            // Each field cell maps to (renderW / W) × params.pixelSize render-space pixels.
+            downscaleFactor = Math.max(2, Math.round(params.pixelSize * (renderW / W)));
+
+            targetX = renderW * 0.1;
+            targetY = renderH * 0.1;
+
+            const r = params.radiusScale;
+            blobs = [
+                { x: renderW * 0.5,  y: renderH * 0.5,  vx: 0,    vy: 0,     radius: renderW * 0.09 * r, isCursor: true },
+                { x: renderW * 0.15, y: renderH * 0.20, vx: 0.4,  vy: 0.3,   radius: renderW * 0.10 * r, phase: 0 },
+                { x: renderW * 0.85, y: renderH * 0.25, vx: -0.3, vy: 0.5,   radius: renderW * 0.11 * r, phase: 2.0 },
+                { x: renderW * 0.020, y: renderH * 0.085, vx: 0.05,  vy: -0.04,  radius: renderW * 0.15 * r, phase: 4.0 },
+            ];
+
+            // Regenerate static noise pattern at new render size
+            noisePattern = generateNoisePattern(renderW, renderH);
+        }
+
+        resize();
+        window.addEventListener('resize', resize);
+
+        window.addEventListener('mousemove', (e) => {
+            targetX = (e.clientX / W) * renderW;
+            targetY = (e.clientY / H) * renderH;
+            pointerActive = true;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches && e.touches[0]) {
+                targetX = (e.touches[0].clientX / W) * renderW;
+                targetY = (e.touches[0].clientY / H) * renderH;
+                pointerActive = true;
+            }
+        }, { passive: true });
+
+        window.addEventListener('mouseleave', () => {
+            pointerActive = false;
+        });
+
+        function step() {
+            t += 1;
+
+            const cursor = blobs[0];
+            const tx = pointerActive ? targetX : (renderW * 0.5 + Math.cos(t * 0.04) * renderW * 0.30);
+            const ty = pointerActive ? targetY : (renderH * 0.5 + Math.sin(t * 0.05) * renderH * 0.25);
+            cursor.x += (tx - cursor.x) * 0.07;
+            cursor.y += (ty - cursor.y) * 0.07;
+
+            const cursorPull = params.cursorPull;
+            const drift = params.driftSpeed;
+
+            for (let i = 1; i < blobs.length; i++) {
+                const b = blobs[i];
+                const driftX = Math.cos((t + b.phase * 30) * 0.020 + i) * drift;
+                const driftY = Math.sin((t + b.phase * 30) * 0.025 + i * 1.3) * drift;
+                b.vx = lerp(b.vx, driftX, 0.04);
+                b.vy = lerp(b.vy, driftY, 0.04);
+
+                const dx = cursor.x - b.x;
+                const dy = cursor.y - b.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 1) {
+                    const pull = cursorPull / Math.max(dist * 0.005, 1);
+                    b.vx += (dx / dist) * pull;
+                    b.vy += (dy / dist) * pull;
+                }
+
+                b.vx = clamp(b.vx, -2.5, 2.5);
+                b.vy = clamp(b.vy, -2.5, 2.5);
+                b.x += b.vx;
+                b.y += b.vy;
+
+                const margin = 60;
+                if (b.x < margin) b.vx += 0.15;
+                if (b.x > renderW - margin) b.vx -= 0.15;
+                if (b.y < margin) b.vy += 0.15;
+                if (b.y > renderH - margin) b.vy -= 0.15;
+            }
+
+            render();
+        }
+
+        function render() {
+            // Use the resize-computed downscale factor so pixel size is
+            // consistent across viewport sizes (see params.pixelSize).
+            const downscale = downscaleFactor;
+            const lw = Math.ceil(renderW / downscale);
+            const lh = Math.ceil(renderH / downscale);
+            let fieldPx = new Float32Array(lw * lh);
+
+            for (let i = 0; i < blobs.length; i++) {
+                const b = blobs[i];
+                const bx = b.x / downscale;
+                const by = b.y / downscale;
+                const radSq = (b.radius / downscale) * (b.radius / downscale);
+
+                for (let py = 0; py < lh; py++) {
+                    const dy = py - by;
+                    for (let px = 0; px < lw; px++) {
+                        const dx = px - bx;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < radSq * 30) {
+                            fieldPx[py * lw + px] += fieldExponential(distSq, radSq);
+                        }
+                    }
+                }
+            }
+
+            if (params.blurRadius > 0) {
+                fieldPx = blurField(fieldPx, lw, lh, params.blurRadius);
+            }
+
+            const img = ctx.createImageData(renderW, renderH);
+            const d = img.data;
+
+            const T_AMBIENT = params.tAmbient;
+            const T_WARM = params.tWarm;
+            const T_MID = params.tMid;
+            const T_PEAK = params.tPeak;
+
+            const BG = params.colBg;
+            const WARM_COL = params.colWarm;
+            const MID_COL = params.colMid;
+            const PEAK_COL = params.colPeak;
+            const NOISE_AMP_MAX = params.noiseAmp;
+
+            for (let y = 0; y < renderH; y++) {
+                const ly = Math.floor(y / downscale);
+                for (let x = 0; x < renderW; x++) {
+                    const lx = Math.floor(x / downscale);
+                    const f = fieldPx[ly * lw + lx];
+                    const idx = (y * renderW + x) * 4;
+
+                    let r = BG[0], g = BG[1], b = BG[2];
+
+                    if (f > T_AMBIENT) {
+                        const t1 = clamp((f - T_AMBIENT) / (T_WARM - T_AMBIENT), 0, 1);
+                        const e1 = t1 * t1 * (3 - 2 * t1);
+                        r = lerp(BG[0], WARM_COL[0], e1);
+                        g = lerp(BG[1], WARM_COL[1], e1);
+                        b = lerp(BG[2], WARM_COL[2], e1);
+
+                        if (f > T_WARM) {
+                            const t2 = clamp((f - T_WARM) / (T_MID - T_WARM), 0, 1);
+                            const e2 = t2 * t2 * (3 - 2 * t2);
+                            r = lerp(r, MID_COL[0], e2);
+                            g = lerp(g, MID_COL[1], e2);
+                            b = lerp(b, MID_COL[2], e2);
+                        }
+
+                        if (f > T_MID) {
+                            const t3 = clamp((f - T_MID) / (T_PEAK - T_MID), 0, 1);
+                            const e3 = t3 * t3 * (3 - 2 * t3);
+                            r = lerp(r, PEAK_COL[0], e3);
+                            g = lerp(g, PEAK_COL[1], e3);
+                            b = lerp(b, PEAK_COL[2], e3);
+                        }
+                    }
+
+                    // Static noise from pre-generated pattern, scaled by field intensity.
+                    // Brighter zones get more grain than ambient.
+                    // The noise doesn't change per-frame, so no flicker — comfortable to read against.
+                    const n = noisePattern[y * renderW + x];
+                    const fieldIntensity = clamp(f / T_PEAK, 0, 1);
+                    const noiseAmp = (NOISE_AMP_MAX * 0.5) + (fieldIntensity * NOISE_AMP_MAX * 0.5);
+                    const noiseValue = n * noiseAmp;
+
+                    d[idx]   = clamp(r + noiseValue, 0, 255);
+                    d[idx+1] = clamp(g + noiseValue, 0, 255);
+                    d[idx+2] = clamp(b + noiseValue, 0, 255);
+                    d[idx+3] = 255;
+                }
+            }
+
+            ctx.putImageData(img, 0, 0);
+        }
+
+        // FPS pulled live from params each frame so it can be tuned
+        // from the control center without restarting the loop.
+        let lastFrame = 0;
+
+        function loop(now) {
+            const frameMs = 1000 / params.fps;
+            if (!lastFrame || now - lastFrame >= frameMs) {
+                step();
+                lastFrame = now;
+            }
+            requestAnimationFrame(loop);
+        }
+
+        render();
+        requestAnimationFrame(loop);
+
+        // ============================================
+        // CONTROL CENTER WIRING
+        // ============================================
+        function rgbToHex(rgb) {
+            return '#' + rgb.map(v => {
+                const h = Math.max(0, Math.min(255, Math.round(v))).toString(16);
+                return h.length === 1 ? '0' + h : h;
+            }).join('');
+        }
+
+        function hexToRgb(hex) {
+            const m = hex.replace('#', '').match(/.{1,2}/g);
+            return m ? m.map(x => parseInt(x, 16)) : [0, 0, 0];
+        }
+
+        const controls = [
+            { id: 'cc-fps',      param: 'fps',         fmt: v => v + ' fps' },
+            { id: 'cc-pixel',    param: 'pixelSize',   fmt: v => v + 'px',     onChange: resize },
+            { id: 'cc-rscale',   param: 'renderScale', fmt: v => v + '%',      onChange: resize },
+            { id: 'cc-falloff',  param: 'falloff',     fmt: v => v.toFixed(2) },
+            { id: 'cc-blur',     param: 'blurRadius',  fmt: v => String(v) },
+            { id: 'cc-noise',    param: 'noiseAmp',    fmt: v => String(v) },
+            { id: 'cc-tA',       param: 'tAmbient',    fmt: v => v.toFixed(2) },
+            { id: 'cc-tW',       param: 'tWarm',       fmt: v => v.toFixed(2) },
+            { id: 'cc-tM',       param: 'tMid',        fmt: v => v.toFixed(2) },
+            { id: 'cc-tP',       param: 'tPeak',       fmt: v => v.toFixed(2) },
+            { id: 'cc-cpull',    param: 'cursorPull',  fmt: v => v.toFixed(3) },
+            { id: 'cc-drift',    param: 'driftSpeed',  fmt: v => v.toFixed(2) },
+            { id: 'cc-radscale', param: 'radiusScale', fmt: v => v.toFixed(2), onChange: resize },
+        ];
+
+        const colorControls = [
+            { id: 'cc-cBg',   param: 'colBg' },
+            { id: 'cc-cWarm', param: 'colWarm' },
+            { id: 'cc-cMid',  param: 'colMid' },
+            { id: 'cc-cPeak', param: 'colPeak' },
+        ];
+
+        function syncControlsFromParams() {
+            controls.forEach(c => {
+                const input = document.getElementById(c.id);
+                const valEl = document.getElementById(c.id + '-v');
+                if (input && valEl) {
+                    input.value = params[c.param];
+                    valEl.textContent = c.fmt(params[c.param]);
+                }
+            });
+            colorControls.forEach(c => {
+                const input = document.getElementById(c.id);
+                if (input) input.value = rgbToHex(params[c.param]);
+            });
+        }
+
+        controls.forEach(c => {
+            const input = document.getElementById(c.id);
+            const valEl = document.getElementById(c.id + '-v');
+            if (!input) return;
+            input.addEventListener('input', () => {
+                const num = parseFloat(input.value);
+                params[c.param] = num;
+                if (valEl) valEl.textContent = c.fmt(num);
+                if (c.onChange) c.onChange();
+                render();
+            });
+        });
+
+        colorControls.forEach(c => {
+            const input = document.getElementById(c.id);
+            if (!input) return;
+            input.addEventListener('input', () => {
+                params[c.param] = hexToRgb(input.value);
+                render();
+            });
+        });
+
+        // Toggle panel visibility via gear (legacy, hidden) or '?' key
+        const panel = document.getElementById('cc-panel');
+        document.getElementById('cc-toggle').addEventListener('click', () => {
+            panel.classList.toggle('cc-hidden');
+        });
+        document.getElementById('cc-close').addEventListener('click', () => {
+            panel.classList.add('cc-hidden');
+        });
+
+        // '?' (shift + /) opens / closes the control center.
+        // Esc always closes it.
+        // Ignore the key when focus is in an input/textarea/contenteditable.
+        document.addEventListener('keydown', (e) => {
+            const target = e.target;
+            const tag = (target.tagName || '').toLowerCase();
+            const isInputFocus = tag === 'input' || tag === 'textarea' || target.isContentEditable;
+            if (isInputFocus) return;
+
+            if (e.key === '?') {
+                e.preventDefault();
+                panel.classList.toggle('cc-hidden');
+            } else if (e.key === 'Escape') {
+                panel.classList.add('cc-hidden');
+            }
+        });
+
+        // Reset to defaults
+        document.getElementById('cc-reset').addEventListener('click', () => {
+            Object.assign(params, JSON.parse(JSON.stringify(DEFAULTS)));
+            syncControlsFromParams();
+            resize();
+            render();
+        });
+
+        // Copy current values as a JS snippet you can paste into DEFAULTS
+        document.getElementById('cc-copy').addEventListener('click', (e) => {
+            const lines = [
+                'fps:           ' + params.fps + ',',
+                'pixelSize:     ' + params.pixelSize + ',',
+                'renderScale:   ' + params.renderScale + ',',
+                'falloff:       ' + params.falloff + ',',
+                'blurRadius:    ' + params.blurRadius + ',',
+                'noiseAmp:      ' + params.noiseAmp + ',',
+                'tAmbient:      ' + params.tAmbient + ',',
+                'tWarm:         ' + params.tWarm + ',',
+                'tMid:          ' + params.tMid + ',',
+                'tPeak:         ' + params.tPeak + ',',
+                'cursorPull:    ' + params.cursorPull + ',',
+                'driftSpeed:    ' + params.driftSpeed + ',',
+                'radiusScale:   ' + params.radiusScale + ',',
+                'colBg:    [' + params.colBg.join(', ') + '],',
+                'colWarm:  [' + params.colWarm.join(', ') + '],',
+                'colMid:   [' + params.colMid.join(', ') + '],',
+                'colPeak:  [' + params.colPeak.join(', ') + '],',
+            ];
+            const text = lines.join('\n');
+            const btn = e.target;
+            const orig = btn.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = 'Copied';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            }).catch(() => {
+                btn.textContent = 'Failed — see console';
+                console.log(text);
+                setTimeout(() => { btn.textContent = orig; }, 2000);
+            });
+        });
+
+        // ============================================
+        // THEME TOGGLE
+        // Swaps data-theme on <html> (re-themes all CSS) and switches
+        // the lava palette to the matching theme defaults. The user's
+        // tuned non-color params (fps, falloff, etc.) carry over.
+        // ============================================
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeToggleLabel = themeToggleBtn.querySelector('.theme-toggle-label');
+
+        function updateToggleLabel() {
+            // Label shows what you'll switch TO, not what you're currently in
+            themeToggleLabel.textContent = currentTheme === 'light' ? 'Dark' : 'Light';
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+
+            const palette = THEMED_DEFAULTS[theme];
+            params.colBg = palette.colBg.slice();
+            params.colWarm = palette.colWarm.slice();
+            params.colMid = palette.colMid.slice();
+            params.colPeak = palette.colPeak.slice();
+
+            try { localStorage.setItem('pri4l-theme', theme); } catch (e) {}
+
+            syncControlsFromParams();
+            updateToggleLabel();
+            render();
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            setTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
+
+        // Follow OS theme changes when the user hasn't made an explicit choice.
+        // Once they click the toggle, localStorage is set and OS changes are ignored.
+        if (window.matchMedia) {
+            const mql = window.matchMedia('(prefers-color-scheme: dark)');
+            const handler = (e) => {
+                let saved = null;
+                try { saved = localStorage.getItem('pri4l-theme'); } catch (_) {}
+                if (saved === 'dark' || saved === 'light') return;
+                // Apply OS theme without writing to localStorage so it stays system-tracked
+                const osTheme = e.matches ? 'dark' : 'light';
+                if (osTheme !== currentTheme) {
+                    currentTheme = osTheme;
+                    document.documentElement.setAttribute('data-theme', osTheme);
+                    const palette = THEMED_DEFAULTS[osTheme];
+                    params.colBg = palette.colBg.slice();
+                    params.colWarm = palette.colWarm.slice();
+                    params.colMid = palette.colMid.slice();
+                    params.colPeak = palette.colPeak.slice();
+                    syncControlsFromParams();
+                    updateToggleLabel();
+                    render();
+                }
+            };
+            // Modern + legacy listener registration
+            if (mql.addEventListener) mql.addEventListener('change', handler);
+            else if (mql.addListener) mql.addListener(handler);
+        }
+
+        updateToggleLabel();
+
+        syncControlsFromParams();
+    })();
+    </script>
+
+</body>
+</html>
