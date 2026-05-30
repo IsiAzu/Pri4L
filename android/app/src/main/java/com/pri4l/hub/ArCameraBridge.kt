@@ -45,7 +45,7 @@ class ArCameraBridge(
         if (now - lastSendMs < minIntervalMs) return
         lastSendMs = now
 
-        if (now - lastCameraInfoMs >= 2000) {
+        if (now - lastCameraInfoMs >= 200) {
             publishCameraInfo(frame)
             lastCameraInfoMs = now
         }

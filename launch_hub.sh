@@ -23,6 +23,7 @@ Phone localization is handled by ARCore on the phone app (no hub-side processing
 Options:
   --new-map      Start a fresh map (deletes existing database)
   --localize     Relocalize against existing map (read-only)
+  --merged       Localize against merged map (~/.ros/rtabmap_merged.db)
   --verbose      Also print all output to terminal (default: terminal is quiet)
   -h, --help     Show this help message
 
@@ -33,6 +34,7 @@ Examples:
   bash launch_hub.sh                  # Resume mapping from existing database
   bash launch_hub.sh --new-map        # Start fresh
   bash launch_hub.sh --localize       # Lock map, localize only
+  bash launch_hub.sh --merged         # Localize against merged map
 EOF
     exit 0
 }
@@ -52,6 +54,7 @@ source /opt/ros/humble/setup.bash
 RTABMAP_EXTRA=""
 LOCALIZATION="false"
 VERBOSE="false"
+DATABASE_PATH=""
 
 for arg in "$@"; do
     case $arg in
@@ -62,6 +65,16 @@ for arg in "$@"; do
         --localize)
             LOCALIZATION="true"
             echo "Localization mode (using existing map)"
+            ;;
+        --merged)
+            DATABASE_PATH="${HOME}/.ros/rtabmap_merged.db"
+            LOCALIZATION="true"
+            if [ ! -f "$DATABASE_PATH" ]; then
+                echo "Error: Merged database not found at $DATABASE_PATH"
+                echo "Run merge_maps.sh first to create it."
+                exit 1
+            fi
+            echo "Localization mode (using merged map: $DATABASE_PATH)"
             ;;
         --verbose)
             VERBOSE="true"
@@ -91,7 +104,7 @@ cat >> "$SESSION_LOG" <<EOF
 Hub session started: $(date '+%Y-%m-%d %H:%M:%S')
 Arguments: $@
 Host: $(hostname) ($(hostname -I | awk '{print $1}'))
-Map database: ~/.ros/rtabmap.db ($(ls -lh ~/.ros/rtabmap.db 2>/dev/null | awk '{print $5}' || echo 'not found'))
+Map database: ${DATABASE_PATH:-~/.ros/rtabmap.db} ($(ls -lh "${DATABASE_PATH:-$HOME/.ros/rtabmap.db}" 2>/dev/null | awk '{print $5}' || echo 'not found'))
 ================================================================================
 EOF
 
@@ -118,7 +131,7 @@ sleep 2
 echo ""
 echo "=== Hub running ==="
 echo "  WebSocket: ws://$(hostname -I | awk '{print $1}'):9090"
-echo "  Map database: ~/.ros/rtabmap.db"
+echo "  Map database: ${DATABASE_PATH:-~/.ros/rtabmap.db}"
 echo "  Phone: use ARCore app, tap Align at the D435"
 echo "  Session log: $SESSION_LOG"
 echo "  Latest log:  $LOG_DIR/latest.log"
@@ -128,9 +141,14 @@ echo ""
 # 3. RTAB-Map (foreground process — keeps script alive)
 echo "=== Starting RTAB-Map ==="
 echo "[$(date '+%H:%M:%S')] [hub] Starting RTAB-Map (foreground)" >> "$SESSION_LOG"
+DB_PARAM=""
+if [ -n "$DATABASE_PATH" ]; then
+    DB_PARAM="database_path:=$DATABASE_PATH"
+fi
 if [ "$VERBOSE" = "true" ]; then
     ros2 launch rtabmap_launch rtabmap.launch.py \
         $RTABMAP_EXTRA \
+        $DB_PARAM \
         localization:=$LOCALIZATION \
         rgb_topic:=/camera/camera/color/image_raw \
         depth_topic:=/camera/camera/depth/image_rect_raw \
@@ -141,6 +159,7 @@ if [ "$VERBOSE" = "true" ]; then
 else
     ros2 launch rtabmap_launch rtabmap.launch.py \
         $RTABMAP_EXTRA \
+        $DB_PARAM \
         localization:=$LOCALIZATION \
         rgb_topic:=/camera/camera/color/image_raw \
         depth_topic:=/camera/camera/depth/image_rect_raw \
