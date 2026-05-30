@@ -33,6 +33,9 @@ class RosbridgeClient {
     private var reconnectAttempt = 0
 
     fun connect(host: String, port: Int = 9090) {
+        // Cancel any pending reconnect callbacks from prior attempts
+        mainHandler.removeCallbacksAndMessages(null)
+        ws?.cancel()
         reconnectHost = host
         reconnectPort = port
         reconnectAttempt = 0
@@ -40,6 +43,7 @@ class RosbridgeClient {
     }
 
     private fun doConnect(host: String, port: Int) {
+        if (state.value == ConnectionState.CONNECTED) return
         ws?.cancel()
         state.value = ConnectionState.CONNECTING
 
