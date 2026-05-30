@@ -273,7 +273,7 @@ fun HubScreen(
                 factory = { glSurfaceView!! },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 200.dp)
+                    .height(300.dp)
             )
         }
     }

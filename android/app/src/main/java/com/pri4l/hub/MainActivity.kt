@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
     private val frameAlignment = FrameAlignment()
     private var arCameraBridge: ArCameraBridge? = null
     private var arSession: Session? = null
-    private var glSurfaceView: GLSurfaceView? = null
+    private val glSurfaceViewState = mutableStateOf<GLSurfaceView?>(null)
 
     private val imuRunning = mutableStateOf(false)
     private val cameraRunning = mutableStateOf(false)
@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                         onToggleAr = ::handleToggleAr,
                         onAlign = ::handleAlign,
                         onClearAlignment = ::handleClearAlignment,
-                        glSurfaceView = glSurfaceView
+                        glSurfaceView = glSurfaceViewState.value
                     )
                 }
             }
@@ -191,7 +191,9 @@ class MainActivity : ComponentActivity() {
             session.resume()
             arSession = session
 
-            arCameraBridge = ArCameraBridge(rosbridge, frameAlignment)
+            arCameraBridge = ArCameraBridge(rosbridge, frameAlignment) {
+                (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+            }
 
             val renderer = ArRenderer(
                 sessionProvider = { arSession },
@@ -209,7 +211,7 @@ class MainActivity : ComponentActivity() {
                 setRenderer(renderer)
                 renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
             }
-            glSurfaceView = surfaceView
+            glSurfaceViewState.value = surfaceView
             arRunning.value = true
             arTrackingUiState.value = ArTrackingUiState.NOT_TRACKING
         } catch (e: Exception) {
@@ -273,7 +275,7 @@ class MainActivity : ComponentActivity() {
         aligned.value = false
         arTrackingUiState.value = ArTrackingUiState.OFF
         frameAlignment.reset()
-        glSurfaceView = null
+        glSurfaceViewState.value = null
         arCameraBridge = null
         arSession?.pause()
         arSession?.close()
@@ -289,14 +291,14 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (arRunning.value) {
             arSession?.resume()
-            glSurfaceView?.onResume()
+            glSurfaceViewState.value?.onResume()
         }
     }
 
     override fun onPause() {
         super.onPause()
         if (arRunning.value) {
-            glSurfaceView?.onPause()
+            glSurfaceViewState.value?.onPause()
             arSession?.pause()
         }
     }

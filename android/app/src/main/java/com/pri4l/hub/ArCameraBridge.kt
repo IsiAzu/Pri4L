@@ -1,6 +1,9 @@
 package com.pri4l.hub
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.media.Image
@@ -18,7 +21,8 @@ import java.io.ByteArrayOutputStream
  */
 class ArCameraBridge(
     private val client: RosbridgeClient,
-    private val frameAlignment: FrameAlignment
+    private val frameAlignment: FrameAlignment,
+    private val getDisplayRotation: () -> Int = { android.view.Surface.ROTATION_0 }
 ) {
     private var lastSendMs = 0L
     private val minIntervalMs = 200L // ~5fps
@@ -103,10 +107,31 @@ class ArCameraBridge(
         val principalPoint = intrinsics.principalPoint
         val dims = intrinsics.imageDimensions
 
-        val fx = focalLength[0].toDouble()
-        val fy = focalLength[1].toDouble()
-        val cx = principalPoint[0].toDouble()
-        val cy = principalPoint[1].toDouble()
+        val rotation = when (getDisplayRotation()) {
+            android.view.Surface.ROTATION_0 -> 90f
+            android.view.Surface.ROTATION_90 -> 0f
+            android.view.Surface.ROTATION_180 -> 270f
+            android.view.Surface.ROTATION_270 -> 180f
+            else -> 90f
+        }
+
+        // When rotated 90/270, swap axes for intrinsics and dimensions
+        val w: Int; val h: Int; val fx: Double; val fy: Double; val cx: Double; val cy: Double
+        if (rotation == 90f || rotation == 270f) {
+            w = dims[1]; h = dims[0]
+            fx = focalLength[1].toDouble()
+            fy = focalLength[0].toDouble()
+            cx = if (rotation == 90f) principalPoint[1].toDouble()
+                 else (dims[1] - principalPoint[1]).toDouble()
+            cy = if (rotation == 90f) (dims[0] - principalPoint[0]).toDouble()
+                 else principalPoint[0].toDouble()
+        } else {
+            w = dims[0]; h = dims[1]
+            fx = focalLength[0].toDouble()
+            fy = focalLength[1].toDouble()
+            cx = principalPoint[0].toDouble()
+            cy = principalPoint[1].toDouble()
+        }
 
         val now = System.currentTimeMillis()
         val msg = JSONObject().apply {
@@ -117,8 +142,8 @@ class ArCameraBridge(
                 })
                 put("frame_id", "phone_camera")
             })
-            put("width", dims[0])
-            put("height", dims[1])
+            put("width", w)
+            put("height", h)
             put("distortion_model", "plumb_bob")
             put("d", org.json.JSONArray(listOf(0.0, 0.0, 0.0, 0.0, 0.0)))
             put("k", org.json.JSONArray(listOf(fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0)))
@@ -177,8 +202,28 @@ class ArCameraBridge(
         uBuffer.get(nv21, ySize + vSize, uSize)
 
         val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+        val rawOut = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 60, rawOut)
+
+        // Rotate based on display orientation — sensor is landscape-native
+        val rotation = when (getDisplayRotation()) {
+            android.view.Surface.ROTATION_0 -> 90f
+            android.view.Surface.ROTATION_90 -> 0f
+            android.view.Surface.ROTATION_180 -> 270f
+            android.view.Surface.ROTATION_270 -> 180f
+            else -> 90f
+        }
+        if (rotation == 0f) return rawOut.toByteArray()
+
+        val rawBytes = rawOut.toByteArray()
+        val bitmap = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size) ?: return rawBytes
+        val matrix = Matrix().apply { postRotate(rotation) }
+        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false)
+        bitmap.recycle()
+
         val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 60, out)
+        rotated.compress(Bitmap.CompressFormat.JPEG, 60, out)
+        rotated.recycle()
         return out.toByteArray()
     }
 }
