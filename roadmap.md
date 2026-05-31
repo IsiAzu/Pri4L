@@ -19,6 +19,7 @@ Living document. Updated as architecture decisions are made and milestones are r
 | Hub relocalizes phone against saved map | Cross-device localization | Superseded — see ARCore + manual alignment (009) |
 | LLM answers spatial queries | AI integration baseline | Done |
 | Digital content anchored to real-world position | AR rendering pipeline — ARCore overlay + hub anchors | Done (phone POC); glasses Track A still open |
+| Phone-as-mapper extends hub coverage | Phone RGB + ARCore odom → RTAB-Map → merged map | Done (14 inter-map loop closures) |
 
 **Operational status** (workstreams, ADR index, 010 gates): see [`docs/PROGRAM_STATUS.md`](docs/PROGRAM_STATUS.md). **Canonical decisions** remain under [`decisions/`](decisions/).
 

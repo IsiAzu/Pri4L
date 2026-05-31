@@ -34,9 +34,13 @@ class MainActivity : ComponentActivity() {
     private val cameraRunning = mutableStateOf(false)
     private val arRunning = mutableStateOf(false)
     private val arAvailable = mutableStateOf(false)
+    private val glassesAvailable = mutableStateOf(false)
+    private val glassesRunning = mutableStateOf(false)
     private val arTrackingUiState = mutableStateOf(ArTrackingUiState.OFF)
     private val aligned = mutableStateOf(false)
     private val pose = mutableStateOf(PoseData())
+
+    private var glassesTracker: GlassesTracker? = null
 
     // Flag set by UI thread, consumed by GL thread
     @Volatile private var alignRequested = false
@@ -77,9 +81,9 @@ class MainActivity : ComponentActivity() {
                         pose = pose.value,
                         imuActive = imuRunning.value,
                         cameraActive = cameraRunning.value,
-                        arActive = arRunning.value,
-                        arAvailable = arAvailable.value,
-                        arTrackingState = arTrackingUiState.value,
+                        arActive = arRunning.value || glassesRunning.value,
+                        arAvailable = arAvailable.value || glassesAvailable.value,
+                        arTrackingState = if (glassesRunning.value) ArTrackingUiState.TRACKING else arTrackingUiState.value,
                         isAligned = aligned.value,
                         savedHost = prefs.getString("host", "192.168.68.143") ?: "192.168.68.143",
                         savedPort = prefs.getString("port", "9090") ?: "9090",
@@ -87,10 +91,11 @@ class MainActivity : ComponentActivity() {
                         onDisconnect = ::handleDisconnect,
                         onToggleImu = ::handleToggleImu,
                         onToggleCamera = ::handleToggleCamera,
-                        onToggleAr = ::handleToggleAr,
+                        onToggleAr = if (arAvailable.value) ::handleToggleAr else ::handleToggleGlasses,
                         onAlign = ::handleAlign,
                         onClearAlignment = ::handleClearAlignment,
                         onPlaceAnchor = ::handlePlaceAnchor,
+                        glassesMode = glassesAvailable.value && !arAvailable.value,
                         glSurfaceView = glSurfaceViewState.value
                     )
                 }
@@ -99,8 +104,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkArAvailability() {
-        val availability = ArCoreApk.getInstance().checkAvailability(this)
-        arAvailable.value = availability.isSupported
+        var arSupported = false
+        try {
+            val availability = ArCoreApk.getInstance().checkAvailability(this)
+            arSupported = availability == ArCoreApk.Availability.SUPPORTED_INSTALLED
+            // Double-check: try creating a session — if it fails, ARCore isn't usable
+            if (arSupported) {
+                val testSession = Session(this)
+                testSession.close()
+            }
+        } catch (_: Exception) {
+            arSupported = false
+        }
+        arAvailable.value = arSupported
+        // If no ARCore, check if we have sensors for glasses mode
+        if (!arAvailable.value) {
+            glassesAvailable.value = GlassesTracker.isAvailable(this)
+        }
+        android.util.Log.w("Pri4L", "arAvailable=$arSupported glassesAvailable=${glassesAvailable.value}")
     }
 
     private fun handleConnect(host: String, port: Int) {
@@ -303,6 +324,55 @@ class MainActivity : ComponentActivity() {
         arSession?.pause()
         arSession?.close()
         arSession = null
+    }
+
+    private fun handleToggleGlasses(enabled: Boolean) {
+        if (enabled) startGlasses() else stopGlasses()
+    }
+
+    private fun startGlasses() {
+        android.util.Log.w("Pri4L", "startGlasses() called")
+        val tracker = GlassesTracker(this)
+        tracker.start()
+        glassesTracker = tracker
+
+        val renderer = GlassesRenderer(
+            tracker = tracker,
+            getHubAnchors = { hubAnchors },
+            getPhoneAnchors = { phoneAnchors },
+            getAlignmentMatrix = { frameAlignment.alignmentMatrix }
+        )
+
+        val surfaceView = GLSurfaceView(this).apply {
+            preserveEGLContextOnPause = true
+            setEGLContextClientVersion(2)
+            setRenderer(renderer)
+            renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+        }
+        glSurfaceViewState.value = surfaceView
+        glassesRunning.value = true
+        android.util.Log.w("Pri4L", "glassesRunning=true, glSurfaceView set")
+
+        // In glasses mode, replace the entire content view with the GL surface
+        setContentView(surfaceView)
+
+        // Auto-align: place glasses 1.5m back from hub origin so anchors are visible
+        if (!frameAlignment.isAligned) {
+            frameAlignment.align(
+                floatArrayOf(0f, 0f, 0f), floatArrayOf(0f, 0f, 0f, 1f),  // hub origin
+                floatArrayOf(0f, 0f, 1.5f), floatArrayOf(0f, 0f, 0f, 1f) // glasses 1.5m back
+            )
+            aligned.value = true
+        }
+    }
+
+    private fun stopGlasses() {
+        glassesRunning.value = false
+        glassesTracker?.stop()
+        glassesTracker = null
+        glSurfaceViewState.value = null
+        frameAlignment.reset()
+        aligned.value = false
     }
 
     private fun parsePoseArray(msg: org.json.JSONObject): List<FloatArray> {

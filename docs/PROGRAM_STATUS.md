@@ -1,6 +1,6 @@
 # Program status
 
-**Last updated:** 2026-03-21
+**Last updated:** 2026-05-31
 
 **Canonical ADRs:** Every decision lives in [`decisions/`](../decisions/). This file is an **index and status dashboard** only—it does **not** replace or relocate those documents.
 
@@ -10,7 +10,7 @@
 
 **Thesis:** Hub-and-spoke spatial AR—compute in the room, thin clients on the face ([`README.md`](../README.md)).
 
-**Today on `main`:** Hub (RTAB-Map + RealSense + rosbridge) and **Track B phone POC** (ARCore + manual alignment per **009**) are working. **Track A** (INMO / glasses) and **010** (hub-integrated fiducial product) are **not** shipped in code yet. **Active product threads:** **010** alignment program ([`plan-010-fiducial-product-rollout.md`](plan-010-fiducial-product-rollout.md)) and closing **004** (network) before hardening hub↔client links.
+**Today on `main`:** Hub (RTAB-Map + RealSense + rosbridge + anchor manager) and **Track B phone POC** (ARCore + manual alignment + bidirectional anchor creation + phone-as-mapper) are working end-to-end. **Track A** (INMO Air3) has GL rendering confirmed but is **blocked on sensor orientation mapping** — see decision 011. **Active product threads:** **011** INMO integration, **010** alignment program ([`plan-010-fiducial-product-rollout.md`](plan-010-fiducial-product-rollout.md)), and closing **004** (network).
 
 ---
 
@@ -40,7 +40,7 @@ Status vocabulary: **Done** | **Active** | **Planned** | **Blocked** | **N/A**.
 | WS-HUB | RealSense, RTAB-Map, `launch_hub.sh`, map DB | Done (POC) | — |
 | WS-TRACK-B-POC | Android app, ARCore, manual align | Done | 003, 009 |
 | WS-010-ALIGN | Hub face fiducial, mfg extrinsics, client observe | Active | 010, 002 |
-| WS-TRACK-A | INMO, streaming, Unity overlay | Planned | 002, 004, 007 |
+| WS-TRACK-A | INMO Air3: GL rendering confirmed, sensor orientation blocked | Active — blocked | 002, 004, 007, 011 |
 | WS-NETWORK | Wi‑Fi RTT, AP vs Direct, latency | Open until **004** closes | 004 |
 | WS-OOBE-DEPTH | OOBE scan, glasses depth | Planned | 005, 006 |
 | WS-AI | Ollama, `spatial_query.py`, YOLO path | Partial | 008 |

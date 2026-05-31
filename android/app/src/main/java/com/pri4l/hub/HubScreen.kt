@@ -90,12 +90,24 @@ fun HubScreen(
     onAlign: () -> Unit,
     onClearAlignment: () -> Unit,
     onPlaceAnchor: () -> Unit,
+    glassesMode: Boolean = false,
     glSurfaceView: GLSurfaceView?
 ) {
     var hostInput by remember { mutableStateOf(savedHost) }
     var portInput by remember { mutableStateOf(savedPort) }
     var showPrivacy by remember { mutableStateOf(false) }
     val connected = connectionState == ConnectionState.CONNECTED
+
+    // Glasses mode: fullscreen GL rendering, no UI chrome
+    if (glassesMode && arActive && glSurfaceView != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { glSurfaceView!! },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        return
+    }
 
     if (showPrivacy) {
         AlertDialog(
