@@ -51,6 +51,7 @@ log_pipe() {
 
 source /opt/ros/humble/setup.bash
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RTABMAP_EXTRA=""
 LOCALIZATION="false"
 VERBOSE="false"
@@ -124,6 +125,12 @@ sleep 3
 echo "=== Starting rosbridge WebSocket ==="
 echo "[$(date '+%H:%M:%S')] [hub] Starting rosbridge WebSocket" >> "$SESSION_LOG"
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml 2>&1 | log_pipe "rosbridge" &
+PIDS+=($!)
+
+# 2b. Anchor Manager
+echo "=== Starting Anchor Manager ==="
+echo "[$(date '+%H:%M:%S')] [hub] Starting anchor_manager" >> "$SESSION_LOG"
+python3 "$SCRIPT_DIR/anchor_manager.py" 2>&1 | log_pipe "anchors" &
 PIDS+=($!)
 
 sleep 2

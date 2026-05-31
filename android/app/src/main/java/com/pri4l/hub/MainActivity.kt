@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
     @Volatile private var alignRequested = false
 
     private var hubAnchors: List<FloatArray> = emptyList()
+    private var phoneAnchors: List<FloatArray> = emptyList()
 
     private val cameraPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -89,6 +90,7 @@ class MainActivity : ComponentActivity() {
                         onToggleAr = ::handleToggleAr,
                         onAlign = ::handleAlign,
                         onClearAlignment = ::handleClearAlignment,
+                        onPlaceAnchor = ::handlePlaceAnchor,
                         glSurfaceView = glSurfaceViewState.value
                     )
                 }
@@ -105,28 +107,19 @@ class MainActivity : ComponentActivity() {
         prefs.edit().putString("host", host).putString("port", port.toString()).apply()
         rosbridge.connect(host, port)
 
-        // Subscribe to hub anchors for AR rendering
+        // Subscribe to hub-created anchors
         rosbridge.subscribe(
-            topic = "/hub/anchors",
+            topic = "/hub/anchors/hub",
             type = "geometry_msgs/msg/PoseArray",
             throttleMs = 1000
-        ) { msg ->
-            val poses = msg.optJSONArray("poses")
-            if (poses != null) {
-                val anchors = mutableListOf<FloatArray>()
-                for (i in 0 until poses.length()) {
-                    val ap = poses.getJSONObject(i).optJSONObject("position")
-                    if (ap != null) {
-                        anchors.add(floatArrayOf(
-                            ap.optDouble("x", 0.0).toFloat(),
-                            ap.optDouble("y", 0.0).toFloat(),
-                            ap.optDouble("z", 0.0).toFloat()
-                        ))
-                    }
-                }
-                hubAnchors = anchors
-            }
-        }
+        ) { msg -> hubAnchors = parsePoseArray(msg) }
+
+        // Subscribe to phone-created anchors
+        rosbridge.subscribe(
+            topic = "/hub/anchors/phone",
+            type = "geometry_msgs/msg/PoseArray",
+            throttleMs = 1000
+        ) { msg -> phoneAnchors = parsePoseArray(msg) }
     }
 
     private fun handleDisconnect() {
@@ -182,6 +175,35 @@ class MainActivity : ComponentActivity() {
         aligned.value = false
     }
 
+    private fun handlePlaceAnchor() {
+        // Publish current phone position in hub frame as a new anchor
+        val currentPose = pose.value
+        val now = System.currentTimeMillis()
+        val msg = org.json.JSONObject().apply {
+            put("header", org.json.JSONObject().apply {
+                put("stamp", org.json.JSONObject().apply {
+                    put("sec", now / 1000)
+                    put("nanosec", (now % 1000) * 1_000_000)
+                })
+                put("frame_id", "map")
+            })
+            put("pose", org.json.JSONObject().apply {
+                put("position", org.json.JSONObject().apply {
+                    put("x", currentPose.x)
+                    put("y", currentPose.y)
+                    put("z", currentPose.z)
+                })
+                put("orientation", org.json.JSONObject().apply {
+                    put("x", 0.0)
+                    put("y", 0.0)
+                    put("z", 0.0)
+                    put("w", 1.0)
+                })
+            })
+        }
+        rosbridge.publish("/phone/anchors/create", "geometry_msgs/msg/PoseStamped", msg)
+    }
+
     private fun startAr() {
         try {
             val session = Session(this)
@@ -198,6 +220,7 @@ class MainActivity : ComponentActivity() {
             val renderer = ArRenderer(
                 sessionProvider = { arSession },
                 getHubAnchors = { hubAnchors },
+                getPhoneAnchors = { phoneAnchors },
                 getAlignmentMatrix = { frameAlignment.alignmentMatrix },
                 displayRotation = {
                     (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
@@ -280,6 +303,20 @@ class MainActivity : ComponentActivity() {
         arSession?.pause()
         arSession?.close()
         arSession = null
+    }
+
+    private fun parsePoseArray(msg: org.json.JSONObject): List<FloatArray> {
+        val poses = msg.optJSONArray("poses") ?: return emptyList()
+        val result = mutableListOf<FloatArray>()
+        for (i in 0 until poses.length()) {
+            val ap = poses.getJSONObject(i).optJSONObject("position") ?: continue
+            result.add(floatArrayOf(
+                ap.optDouble("x", 0.0).toFloat(),
+                ap.optDouble("y", 0.0).toFloat(),
+                ap.optDouble("z", 0.0).toFloat()
+            ))
+        }
+        return result
     }
 
     private fun hasCameraPermission(): Boolean {

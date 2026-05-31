@@ -89,6 +89,7 @@ fun HubScreen(
     onToggleAr: (Boolean) -> Unit,
     onAlign: () -> Unit,
     onClearAlignment: () -> Unit,
+    onPlaceAnchor: () -> Unit,
     glSurfaceView: GLSurfaceView?
 ) {
     var hostInput by remember { mutableStateOf(savedHost) }
@@ -247,6 +248,12 @@ fun HubScreen(
                     enabled = arActive && connected && isAligned
                 ) {
                     Text(stringResource(R.string.clear_alignment))
+                }
+                Button(
+                    onClick = onPlaceAnchor,
+                    enabled = arActive && connected && isAligned
+                ) {
+                    Text("Place Anchor")
                 }
             }
         }

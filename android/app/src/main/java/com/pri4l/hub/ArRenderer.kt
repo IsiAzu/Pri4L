@@ -23,6 +23,7 @@ import javax.microedition.khronos.opengles.GL10
 class ArRenderer(
     private val sessionProvider: () -> Session?,
     private val getHubAnchors: () -> List<FloatArray>,
+    private val getPhoneAnchors: () -> List<FloatArray> = { emptyList() },
     private val getAlignmentMatrix: () -> FloatArray?,
     private val displayRotation: () -> Int,
     private val onArFrame: ((Frame) -> Unit)? = null
@@ -84,61 +85,63 @@ class ArRenderer(
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
 
         val alignment = getAlignmentMatrix()
-        val anchors = getHubAnchors()
         if (alignment != null) {
-            for (anchorPos in anchors) {
-                // --- Draw cube ---
-                Matrix.setIdentityM(modelMatrix, 0)
-                Matrix.translateM(modelMatrix, 0, anchorPos[0], anchorPos[1], anchorPos[2])
-                Matrix.scaleM(modelMatrix, 0, 0.05f, 0.05f, 0.05f) // 5cm cube
-
-                // Apply hub-to-ARCore alignment
-                Matrix.multiplyMM(tempMatrix, 0, alignment, 0, modelMatrix, 0)
-
-                // MVP = projection * view * alignedModel
-                Matrix.multiplyMM(modelMatrix, 0, viewMatrix, 0, tempMatrix, 0)
-                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
-
-                cubeRenderer.draw(mvpMatrix)
-
-                // --- Draw coordinate label ---
-                val label = "x:%.2f y:%.2f z:%.2f".format(anchorPos[0], anchorPos[1], anchorPos[2])
-                val texId = textLabelRenderer.getOrCreateTexture(label)
-
-                // Position at anchor + slight vertical offset (ARCore Y-up)
-                Matrix.setIdentityM(labelModelMatrix, 0)
-                Matrix.translateM(labelModelMatrix, 0, anchorPos[0], anchorPos[1] + 0.06f, anchorPos[2])
-
-                // Apply alignment to get into ARCore space
-                Matrix.multiplyMM(tempMatrix2, 0, alignment, 0, labelModelMatrix, 0)
-
-                // Billboard: replace rotation columns with camera-facing orientation
-                // Extract aligned position
-                val lx = tempMatrix2[12]
-                val ly = tempMatrix2[13]
-                val lz = tempMatrix2[14]
-
-                // Build billboard from inverse view rotation
-                Matrix.setIdentityM(labelModelMatrix, 0)
-                // Right vector from view row 0
-                labelModelMatrix[0] = viewMatrix[0];  labelModelMatrix[1] = viewMatrix[4];  labelModelMatrix[2] = viewMatrix[8]
-                // Up vector from view row 1
-                labelModelMatrix[4] = viewMatrix[1];  labelModelMatrix[5] = viewMatrix[5];  labelModelMatrix[6] = viewMatrix[9]
-                // Forward vector from view row 2
-                labelModelMatrix[8] = viewMatrix[2];  labelModelMatrix[9] = viewMatrix[6];  labelModelMatrix[10] = viewMatrix[10]
-                // Position
-                labelModelMatrix[12] = lx; labelModelMatrix[13] = ly; labelModelMatrix[14] = lz
-
-                // Scale to ~0.12m wide x 0.03m tall
-                Matrix.scaleM(labelModelMatrix, 0, 0.12f, 0.03f, 1f)
-
-                // MVP = projection * view * labelModel
-                Matrix.multiplyMM(tempMatrix2, 0, viewMatrix, 0, labelModelMatrix, 0)
-                Matrix.multiplyMM(labelMvp, 0, projectionMatrix, 0, tempMatrix2, 0)
-
-                textLabelRenderer.draw(labelMvp, texId)
+            // Hub anchors = blue
+            for (anchorPos in getHubAnchors()) {
+                drawAnchorCube(anchorPos, alignment, 0.2f, 0.4f, 1.0f)
+            }
+            // Phone anchors = green
+            for (anchorPos in getPhoneAnchors()) {
+                drawAnchorCube(anchorPos, alignment, 0.2f, 1.0f, 0.4f)
             }
         }
+    }
+
+    private fun drawAnchorCube(anchorPos: FloatArray, alignment: FloatArray, r: Float, g: Float, b: Float) {
+        // --- Draw cube ---
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(modelMatrix, 0, anchorPos[0], anchorPos[1], anchorPos[2])
+        Matrix.scaleM(modelMatrix, 0, 0.07f, 0.07f, 0.07f) // 7cm cube
+
+        // Apply hub-to-ARCore alignment
+        Matrix.multiplyMM(tempMatrix, 0, alignment, 0, modelMatrix, 0)
+
+        // MVP = projection * view * alignedModel
+        Matrix.multiplyMM(modelMatrix, 0, viewMatrix, 0, tempMatrix, 0)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+
+        cubeRenderer.draw(mvpMatrix, r, g, b)
+
+        // --- Draw coordinate label ---
+        val label = "x:%.2f y:%.2f z:%.2f".format(anchorPos[0], anchorPos[1], anchorPos[2])
+        val texId = textLabelRenderer.getOrCreateTexture(label)
+
+        // Position at anchor + slight vertical offset (ARCore Y-up)
+        Matrix.setIdentityM(labelModelMatrix, 0)
+        Matrix.translateM(labelModelMatrix, 0, anchorPos[0], anchorPos[1] + 0.08f, anchorPos[2])
+
+        // Apply alignment to get into ARCore space
+        Matrix.multiplyMM(tempMatrix2, 0, alignment, 0, labelModelMatrix, 0)
+
+        // Billboard: replace rotation columns with camera-facing orientation
+        val lx = tempMatrix2[12]
+        val ly = tempMatrix2[13]
+        val lz = tempMatrix2[14]
+
+        // Build billboard from inverse view rotation
+        Matrix.setIdentityM(labelModelMatrix, 0)
+        labelModelMatrix[0] = viewMatrix[0];  labelModelMatrix[1] = viewMatrix[4];  labelModelMatrix[2] = viewMatrix[8]
+        labelModelMatrix[4] = viewMatrix[1];  labelModelMatrix[5] = viewMatrix[5];  labelModelMatrix[6] = viewMatrix[9]
+        labelModelMatrix[8] = viewMatrix[2];  labelModelMatrix[9] = viewMatrix[6];  labelModelMatrix[10] = viewMatrix[10]
+        labelModelMatrix[12] = lx; labelModelMatrix[13] = ly; labelModelMatrix[14] = lz
+
+        Matrix.scaleM(labelModelMatrix, 0, 0.12f, 0.03f, 1f)
+
+        // MVP = projection * view * labelModel
+        Matrix.multiplyMM(tempMatrix2, 0, viewMatrix, 0, labelModelMatrix, 0)
+        Matrix.multiplyMM(labelMvp, 0, projectionMatrix, 0, tempMatrix2, 0)
+
+        textLabelRenderer.draw(labelMvp, texId)
     }
 }
 
@@ -394,10 +397,10 @@ class CubeRenderer {
             }
     }
 
-    fun draw(mvpMatrix: FloatArray) {
+    fun draw(mvpMatrix: FloatArray, r: Float = 0.2f, g: Float = 0.8f, b: Float = 0.4f) {
         GLES20.glUseProgram(program)
         GLES20.glUniformMatrix4fv(mvpUniform, 1, false, mvpMatrix, 0)
-        GLES20.glUniform4f(colorUniform, 0.2f, 0.8f, 0.4f, 1f)
+        GLES20.glUniform4f(colorUniform, r, g, b, 1f)
         GLES20.glVertexAttribPointer(positionAttrib, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer)
         GLES20.glEnableVertexAttribArray(positionAttrib)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 36)
