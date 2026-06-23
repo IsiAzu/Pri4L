@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
     private val aligned = mutableStateOf(false)
     private val pose = mutableStateOf(PoseData())
 
-    private var glassesTracker: GlassesTracker? = null
+    private var glassesTracker: HeadTracker? = null
 
     // Flag set by UI thread, consumed by GL thread
     @Volatile private var alignRequested = false
@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
         arAvailable.value = arSupported
         // If no ARCore, check if we have sensors for glasses mode
         if (!arAvailable.value) {
-            glassesAvailable.value = GlassesTracker.isAvailable(this)
+            glassesAvailable.value = HeadTrackerFactory.isAvailable(this)
         }
         android.util.Log.w("Pri4L", "arAvailable=$arSupported glassesAvailable=${glassesAvailable.value}")
     }
@@ -332,9 +332,10 @@ class MainActivity : ComponentActivity() {
 
     private fun startGlasses() {
         android.util.Log.w("Pri4L", "startGlasses() called")
-        val tracker = GlassesTracker(this)
+        val tracker = HeadTrackerFactory.create(this)
         tracker.start()
         glassesTracker = tracker
+        android.util.Log.w("Pri4L", "head tracker source: ${tracker.sourceName}")
 
         val renderer = GlassesRenderer(
             tracker = tracker,

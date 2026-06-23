@@ -12,7 +12,7 @@ import javax.microedition.khronos.opengles.GL10
  * No camera background — renders on transparent/black background.
  */
 class GlassesRenderer(
-    private val tracker: GlassesTracker,
+    private val tracker: HeadTracker,
     private val getHubAnchors: () -> List<FloatArray>,
     private val getPhoneAnchors: () -> List<FloatArray>,
     private val getAlignmentMatrix: () -> FloatArray?

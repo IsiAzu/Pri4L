@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      air3_core.aar declares minSdkVersion 34, but its classes only ever load on the
+      INMO glasses (Android 14), gated by InmoFusionTracker.isAvailable() reflection.
+      Override the merge so the app stays installable on API 26 phones (the hub); the
+      INMO path simply never activates there. See decision 011.
+    -->
+    <uses-sdk tools:overrideLibrary="com.inmo.air3_core" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />

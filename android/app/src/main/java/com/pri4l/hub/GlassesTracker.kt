@@ -12,7 +12,9 @@ import android.opengl.Matrix
  * Provides a view matrix suitable for rendering anchors relative to head orientation.
  * No positional tracking — anchors will rotate correctly but no parallax.
  */
-class GlassesTracker(context: Context) : SensorEventListener {
+class GlassesTracker(context: Context) : SensorEventListener, HeadTracker {
+
+    override val sourceName: String = "Android Game Rotation Vector (WIP/broken axes)"
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
@@ -21,7 +23,7 @@ class GlassesTracker(context: Context) : SensorEventListener {
     private val viewMatrix = FloatArray(16)
 
     @Volatile
-    var isTracking = false
+    override var isTracking = false
         private set
 
     init {
@@ -29,26 +31,29 @@ class GlassesTracker(context: Context) : SensorEventListener {
         Matrix.setIdentityM(viewMatrix, 0)
     }
 
-    fun start() {
+    override fun start() {
         if (rotationSensor != null) {
             sensorManager.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_GAME)
             isTracking = true
         }
     }
 
-    fun stop() {
+    override fun stop() {
         sensorManager.unregisterListener(this)
         isTracking = false
     }
 
     private val remappedMatrix = FloatArray(16)
 
-    fun getViewMatrix(dest: FloatArray) {
+    override fun getViewMatrix(dest: FloatArray) {
         synchronized(rotationMatrix) {
-            // Glasses are landscape with screen facing outward.
-            // Use AXIS_Y, AXIS_MINUS_X: equivalent to 90° CW rotation of device,
-            // which maps landscape-native sensor data to GL correctly.
-            // head yaw → GL yaw, head pitch → GL pitch, head roll → GL roll
+            // WIP / KNOWN-BROKEN: head yaw currently shows up as roll. See decision 011.
+            // remapCoordinateSystem can only express axis-aligned 90° permutations and
+            // cannot represent the real (non-axis-aligned) IMU-to-eye mounting offset of
+            // the INMO chassis, so NO axis pair fixes all three of yaw/pitch/roll.
+            // Do not keep permuting these axes — replace this path with INMO's calibrated
+            // fusion quaternion (GyroRotation.vQuat) or an empirically-solved correction
+            // quaternion C applied as view = C · Rᵀ. This call is a placeholder.
             SensorManager.remapCoordinateSystem(
                 rotationMatrix,
                 SensorManager.AXIS_Y,

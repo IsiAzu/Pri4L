@@ -7,3 +7,7 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Local AAR drop-ins (e.g. INMO air3_core) — keep the README, ignore the binaries
+/app/libs/*.aar
+!/app/libs/README.md

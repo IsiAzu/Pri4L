@@ -40,6 +40,12 @@ android {
 }
 
 dependencies {
+    // INMO Air3 native fusion (decision 011). Local .aar dropped into app/libs/.
+    // Absent by default — the app builds and falls back to Game Rotation Vector until
+    // the .aar is present. See app/libs/README.md. fileTree is used so this bypasses
+    // the FAIL_ON_PROJECT_REPOS restriction in settings.gradle.
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+
     // Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
     implementation(composeBom)
