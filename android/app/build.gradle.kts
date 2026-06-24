@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        // OpenCV native is large; restrict to arm64 (modern phones, incl. the Pixel 9a).
+        // Add "armeabi-v7a" here if you need to run on an older 32-bit device.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     buildTypes {
@@ -40,6 +44,12 @@ android {
 }
 
 dependencies {
+    // INMO Air3 native fusion (decision 011). Local .aar dropped into app/libs/.
+    // Absent by default — the app builds and falls back to Game Rotation Vector until
+    // the .aar is present. See app/libs/README.md. fileTree is used so this bypasses
+    // the FAIL_ON_PROJECT_REPOS restriction in settings.gradle.
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+
     // Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
     implementation(composeBom)
@@ -59,6 +69,9 @@ dependencies {
 
     // ARCore
     implementation("com.google.ar:core:1.41.0")
+
+    // OpenCV (objdetect/ArucoDetector) for fiducial alignment to the hub frame.
+    implementation("org.opencv:opencv:4.11.0")
 
     // Core
     implementation("androidx.core:core-ktx:1.12.0")

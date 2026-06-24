@@ -5,6 +5,7 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.WindowManager
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -16,7 +17,7 @@ import javax.microedition.khronos.opengles.GL10
 class GlassesTestActivity : Activity() {
 
     private lateinit var glView: GLSurfaceView
-    private lateinit var tracker: GlassesTracker
+    private lateinit var tracker: HeadTracker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,8 +26,10 @@ class GlassesTestActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        tracker = GlassesTracker(this)
+        // Picks INMO native fusion if the air3_core AAR is present, else Game Rotation Vector.
+        tracker = HeadTrackerFactory.create(this)
         tracker.start()
+        android.util.Log.w("Pri4L", "GlassesTest head tracker: ${tracker.sourceName}")
 
         glView = GLSurfaceView(this).apply {
             setEGLContextClientVersion(2)
@@ -48,9 +51,18 @@ class GlassesTestActivity : Activity() {
         glView.onPause()
         tracker.stop()
     }
+
+    // Look straight ahead, then tap the temple touchpad (any key) to redefine "forward".
+    // The auto-recenter on first frame can capture a stale/pitched reference, leaving
+    // content offset (e.g. cubes sitting below the gaze); this lets the wearer fix it.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        tracker.recenter()
+        android.util.Log.w("Pri4L", "recenter requested (keyCode=$keyCode)")
+        return true
+    }
 }
 
-class HeadTrackedCubeRenderer(private val tracker: GlassesTracker) : GLSurfaceView.Renderer {
+class HeadTrackedCubeRenderer(private val tracker: HeadTracker) : GLSurfaceView.Renderer {
 
     private var cubeRenderer = CubeRenderer()
     private val mvpMatrix = FloatArray(16)

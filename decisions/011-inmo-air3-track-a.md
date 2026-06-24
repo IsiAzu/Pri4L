@@ -1,7 +1,7 @@
 # 011 — INMO Air3: Track A Glasses Platform
 
-**Status:** In Progress — sensor orientation blocked
-**Date:** 2026-05-31
+**Status:** 3DoF orientation RESOLVED on-device 2026-06-23 (IMA301, Android 14) via INMO native fusion (`GyroRotation.vQuat`). Required: a `com.unity3d.player.UnityPlayer` stub (the AAR reads `currentActivity`), `System.loadLibrary("inmoair3")` (the SDK normally loads it in `Air3Core`'s static init, which we bypass), and `tools:overrideLibrary` for the AAR's minSdk 34. `vQuat` order `[x,y,z,w]` correct as-is; tap-to-recenter handles content centering. Next: full `MainActivity` + hub test; VIO/6DoF still future. (Earlier: blocked on `remapCoordinateSystem` — structurally insufficient, see below.)
+**Date:** 2026-05-31 (updated 2026-06-23)
 **Context:** Track A requires AR glasses that can connect to the hub as a thin client. INMO Air3 arrived — this doc captures platform capabilities, integration progress, and current blockers.
 
 ---
@@ -47,6 +47,18 @@
 
 **Root cause:** The Game Rotation Vector's reference frame assumes the device's "natural" orientation is portrait (phone). The INMO is landscape-native AND worn perpendicular to a phone's typical orientation. The sensor fusion already accounts for gravity, but the mapping from device axes to GL axes has a rotational ambiguity that `remapCoordinateSystem` can't resolve with a single call.
 
+#### Investigation 2026-06-01 — refined diagnosis
+
+Re-read `GlassesTracker.getViewMatrix()` (`android/.../GlassesTracker.kt:46-60`). Two findings sharpen the root cause:
+
+1. **The remaps are phone-derived and double-rotate.** `AXIS_X, AXIS_Z` (the earlier attempt) is the *standard "phone held vertically, back camera pointing forward"* remap — it rotates the frame ~90° about pitch so a vertically-held phone's screen-up becomes forward. **Glasses are already worn in the looking-forward orientation**, so the IMU frame is already ~aligned with the eye frame. Applying the phone-camera remap adds a spurious ~90° pitch rotation, which swaps the yaw and roll axes — exactly the observed "yaw → roll" symptom. The current `AXIS_Y, AXIS_MINUS_X` is a different guess at the same dead end.
+
+2. **`remapCoordinateSystem` is structurally too weak.** It can only express the 24 axis-aligned 90° permutations (proper + improper). The true IMU→eye transform depends on how the IMU is physically soldered inside the INMO chassis — almost certainly **not** a clean 90° multiple. No single `remapCoordinateSystem` call can represent a non-axis-aligned mounting offset. This is the structural reason every axis combination fails on at least one axis, and it means the fix is **not** "find the right remap pair."
+
+3. **No recentering / Earth-referenced frame.** `getRotationMatrixFromVector` yields a device→world matrix in Android ENU (X=East, Y=North, Z=Up). With no captured reference orientation, "forward" is magnetic north, not where the wearer is looking. Even with axes fixed, a "look straight ahead" reference capture is required for cubes to sit in front of the user. (Game Rotation Vector drops the magnetometer, so absolute yaw is unavailable anyway — relative tracking from a captured reference is the only correct model.)
+
+**Implication:** Continuing to permute `remapCoordinateSystem` axes cannot succeed. The correct fix is either (a) consume INMO's pre-calibrated fusion quaternion (`GyroRotation.vQuat`), which already bakes in the true mounting offset, or (b) solve for a single constant correction quaternion `C` empirically (`view = C · Rᵀ`, with `C` from a Unity reference capture or a guided look-forward calibration). See refined plan below.
+
 ### 2. VIO/6DoF Not Yet Accessed
 
 **Problem:** The INMO has full VIO (Visual Inertial Odometry) via `com.inmo.air3_core.vio.ArPoseCore` and `com.arglasses.arservice.IServiceInterface`, but this service only starts when their Unity SDK app runs. We haven't tried binding to it from our app.
@@ -80,6 +92,8 @@ Native library: `libinmoair3.so` (4.2MB, arm64) — contains the actual SLAM/VIO
 
 ### Phase 1: Fix 3DoF Orientation (immediate next session)
 
+> **Priority after 2026-06-01 investigation:** Do **not** spend more time permuting `remapCoordinateSystem` axes — it cannot represent the true (non-axis-aligned) IMU mounting. Pursue Option A first; if the AAR can't be integrated quickly, Option B (empirical correction quaternion via a guided look-forward capture) is the fastest self-contained fallback. Option C (Unity) is the reference-of-last-resort for deriving the exact `C`.
+
 **Option A — Use INMO's native fusion (preferred):**
 1. Include `air3_core-debug.aar` in our project as a dependency
 2. Instantiate `GyroRotation`, call `start()`
@@ -88,6 +102,14 @@ Native library: `libinmoair3.so` (4.2MB, arm64) — contains the actual SLAM/VIO
 5. Render cubes using this view matrix
 
 **Why this should work:** INMO's fusion is calibrated for their hardware orientation. It outputs a quaternion that their ATW uses for reprojection — it's designed for exactly this use case.
+
+**Scaffolding landed 2026-06-01 (compiles, AAR not yet present):**
+- `HeadTracker` interface abstracts the orientation source; `GlassesTracker` (Game Rotation Vector, fallback) and `InmoFusionTracker` (INMO fusion) both implement it.
+- `InmoFusionTracker` binds to `com.inmo.air3_core.atw.GyroRotation` **reflectively** so the project builds before the AAR is in-hand and the INMO path activates automatically once it is. Includes quaternion→view conversion + a recenter ("look forward") reference and an `axisFix` hook for eye-axis handedness.
+- `HeadTrackerFactory.create()` selects INMO fusion when `air3_core` is on the classpath, else falls back. Wired into `MainActivity.startGlasses()` and `GlassesTestActivity`.
+- AAR integration: drop `air3_core-*.aar` into `android/app/libs/` (gitignored); picked up via `fileTree` in `app/build.gradle.kts`. See `android/app/libs/README.md` for how to obtain it.
+- **Remaining (needs hardware + the AAR):** obtain the AAR; confirm on-device the assumptions flagged in `InmoFusionTracker.kt` — vQuat component order, field type, `GyroRotation` lifecycle, and `axisFix`. Validate via `GlassesTestActivity` (logcat should report `head tracker source: INMO ...`).
+- Build note: AGP requires JDK 17+; the only JDK on the bench machine is 11. Use Android Studio's bundled JBR — `JAVA_HOME=~/android-studio/jbr ./gradlew ...`.
 
 **Option B — Manual calibration approach:**
 1. On app launch, render a fixed crosshair and ask user to look straight ahead
