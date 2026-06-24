@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Pri4LHub"
 include(":app")
+include(":glasses")

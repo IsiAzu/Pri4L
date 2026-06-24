@@ -1,0 +1,5 @@
+/build
+
+# Local AAR drop-ins (INMO air3_core) — keep the README, ignore the binaries
+/libs/*.aar
+!/libs/README.md
