@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        // OpenCV native is large; restrict to arm64 (modern phones, incl. the Pixel 9a).
+        // Add "armeabi-v7a" here if you need to run on an older 32-bit device.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     buildTypes {
@@ -65,6 +69,9 @@ dependencies {
 
     // ARCore
     implementation("com.google.ar:core:1.41.0")
+
+    // OpenCV (objdetect/ArucoDetector) for fiducial alignment to the hub frame.
+    implementation("org.opencv:opencv:4.11.0")
 
     // Core
     implementation("androidx.core:core-ktx:1.12.0")

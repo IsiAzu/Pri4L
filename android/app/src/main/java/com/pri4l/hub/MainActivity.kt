@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
 
     private val frameAlignment = FrameAlignment()
     private var arCameraBridge: ArCameraBridge? = null
+    private var fiducialAligner: FiducialAligner? = null
     private var arSession: Session? = null
     private val glSurfaceViewState = mutableStateOf<GLSurfaceView?>(null)
 
@@ -71,6 +72,14 @@ class MainActivity : ComponentActivity() {
         cameraSender = CameraSender(this, rosbridge)
         imuSender = ImuSender(this, rosbridge)
         checkArAvailability()
+
+        // Fiducial alignment: detect an ArUco tag at the hub origin to align ARCore <-> hub.
+        if (org.opencv.android.OpenCVLoader.initLocal()) {
+            fiducialAligner = FiducialAligner()
+            android.util.Log.w("Pri4L", "OpenCV loaded; fiducial aligner ready (point at the tag, then Align)")
+        } else {
+            android.util.Log.e("Pri4L", "OpenCV failed to load; fiducial align unavailable (manual align still works)")
+        }
 
         setContent {
             MaterialTheme {
@@ -277,19 +286,29 @@ class MainActivity : ComponentActivity() {
         if (alignRequested) {
             alignRequested = false
             if (cam.trackingState == TrackingState.TRACKING) {
-                val arPose = cam.pose
-                val arPos = floatArrayOf(arPose.tx(), arPose.ty(), arPose.tz())
-                val arRot = floatArrayOf(arPose.qx(), arPose.qy(), arPose.qz(), arPose.qw())
-
-                // D435 is at RTAB-Map origin
+                // Tag at hub origin (D435), identity orientation in the hub frame.
                 val hubPos = floatArrayOf(0f, 0f, 0f)
                 val hubRot = floatArrayOf(0f, 0f, 0f, 1f)
 
-                frameAlignment.align(hubPos, hubRot, arPos, arRot)
-                runOnUiThread { aligned.value = true }
-
-                android.util.Log.w("Pri4L",
-                    "ALIGNED: arPos=[%.3f, %.3f, %.3f]".format(arPos[0], arPos[1], arPos[2]))
+                // Prefer fiducial alignment: detect the ArUco tag and use its AR-world pose.
+                // Falls back to phone-at-origin (decision 009) if no tag is in view.
+                val tag = fiducialAligner?.detectTagInArWorld(frame)
+                if (tag != null) {
+                    frameAlignment.align(hubPos, hubRot, tag.first, tag.second)
+                    runOnUiThread { aligned.value = true }
+                    android.util.Log.w("Pri4L",
+                        "ALIGNED via FIDUCIAL: tagWorld=[%.3f, %.3f, %.3f]"
+                            .format(tag.first[0], tag.first[1], tag.first[2]))
+                } else {
+                    val arPose = cam.pose
+                    val arPos = floatArrayOf(arPose.tx(), arPose.ty(), arPose.tz())
+                    val arRot = floatArrayOf(arPose.qx(), arPose.qy(), arPose.qz(), arPose.qw())
+                    frameAlignment.align(hubPos, hubRot, arPos, arRot)
+                    runOnUiThread { aligned.value = true }
+                    android.util.Log.w("Pri4L",
+                        "ALIGNED via phone-at-origin (no tag in view): arPos=[%.3f, %.3f, %.3f]"
+                            .format(arPos[0], arPos[1], arPos[2]))
+                }
             }
         }
 
