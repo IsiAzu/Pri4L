@@ -25,6 +25,7 @@ class ArRenderer(
     private val getHubAnchors: () -> List<FloatArray>,
     private val getPhoneAnchors: () -> List<FloatArray> = { emptyList() },
     private val getAlignmentMatrix: () -> FloatArray?,
+    private val isAlignmentTrusted: () -> Boolean = { true },
     private val displayRotation: () -> Int,
     private val onArFrame: ((Frame) -> Unit)? = null
 ) : GLSurfaceView.Renderer {
@@ -88,8 +89,10 @@ class ArRenderer(
 
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
 
+        // Hide anchors whenever the transform can't be believed — ARCore regains camera tracking
+        // seconds before it relocalizes, and drawing during that window puts cubes ~1m off.
         val alignment = getAlignmentMatrix()
-        if (alignment != null) {
+        if (alignment != null && isAlignmentTrusted()) {
             // Hub anchors = blue
             for (anchorPos in getHubAnchors()) {
                 drawAnchorCube(anchorPos, alignment, 0.2f, 0.4f, 1.0f)

@@ -93,7 +93,12 @@ class FiducialAligner {
                 for (k in 0 until 4) { val v = c.get(0, k); pts.add(Point(v[0], v[1])) }
                 img.fromList(pts)
 
-                val ok = Calib3d.solvePnP(objPoints, img, camMatrix, distCoeffs, rvec, tvec)
+                // IPPE_SQUARE is purpose-built for square fiducials and resolves the planar pose
+                // ambiguity that makes the default ITERATIVE solver flip orientation — measured
+                // 19deg rotation error on an otherwise 15mm-accurate fix (2026-08-05). Requires
+                // the object points in this exact order (TL, TR, BR, BL), which is what we build.
+                val ok = Calib3d.solvePnP(objPoints, img, camMatrix, distCoeffs, rvec, tvec,
+                    false, Calib3d.SOLVEPNP_IPPE_SQUARE)
                 img.release()
                 if (!ok) return null
 
