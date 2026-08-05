@@ -358,27 +358,24 @@ class MainActivity : ComponentActivity() {
 
         val now = System.currentTimeMillis()
 
-        // ARCore regains camera tracking several seconds BEFORE it relocalizes. In that window
-        // the camera pose sits in a degraded frame: the anchor reads PAUSED and tag detections
-        // come back ~1m/70deg wrong (measured 2026-08-05). Re-locking on those readings corrupts
-        // a good alignment, so wait for the anchor to track again — ARCore recovers the original
-        // frame to within ~15mm once it does.
-        val pending = alignAnchor
-        if (pending != null && pending.trackingState != TrackingState.TRACKING) {
+        // The align anchor going non-TRACKING means ARCore lost its place: the old anchor is
+        // orphaned and the cubes must be hidden. It does NOT mean detections are unusable —
+        // tagWorld is built from the CURRENT camera pose in ARCore's CURRENT frame, so a fresh
+        // sighting re-locks correctly right away. Waiting for ARCore to self-relocalize instead
+        // stalled recovery for 30s+ in a dim room (measured 2026-08-05), so hunt hard instead.
+        val trusted = isAlignmentTrusted()
+        if (!trusted) {
             if (relocWaitStartedMs == 0L) {
                 relocWaitStartedMs = now
                 android.util.Log.w("Pri4L",
-                    "anchor=${pending.trackingState} — holding alignment, waiting for ARCore to " +
-                    "relocalize (anchors hidden)")
-            } else if (now - relocWaitStartedMs >= RELOC_GIVEUP_MS) {
-                android.util.Log.e("Pri4L",
-                    "anchor still ${pending.trackingState} after ${RELOC_GIVEUP_MS}ms — giving up, " +
-                    "dropping alignment for a fresh lock")
-                invalidateAlignment()
+                    "anchor=${alignAnchor?.trackingState} — cubes hidden; hunting for the tag " +
+                    "(a fresh detection re-locks immediately)")
             }
-            return
+            alignmentSuspect = true
+        } else {
+            relocWaitStartedMs = 0L
         }
-        relocWaitStartedMs = 0L
+        if (aligned.value != trusted) runOnUiThread { aligned.value = trusted }
 
         // Re-lock: whenever the tag is back in view, re-seat the anchor on a fresh close-range
         // detection. Costs one camera image, so this frame skips streaming (one
@@ -405,7 +402,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Stream frames + publish pose in the hub frame.
+        // Stream frames + publish pose in the hub frame — but never publish a pose derived from
+        // an alignment we don't believe; the hub would record the phone in the wrong place.
+        if (!trusted) return
         arCameraBridge?.onFrame(frame)
         val arPose = arCameraBridge?.getCurrentArPose(frame)
         if (arPose != null) {
@@ -529,16 +528,6 @@ class MainActivity : ComponentActivity() {
             "RECOVERY DELTA: anchor vs fresh tag = %.3fm / %.1fdeg  (anchor=%s) -> %s"
                 .format(dist, angDeg, anchor.trackingState,
                     if (dist < 0.10) "world SURVIVED the gap" else "world was RESET"))
-    }
-
-    /** Drop the alignment entirely; the unaligned path will re-detect the tag automatically. */
-    private fun invalidateAlignment() {
-        frameAlignment.reset()
-        alignAnchor?.detach()
-        alignAnchor = null
-        alignmentSuspect = false
-        haveLastCamPos = false
-        runOnUiThread { aligned.value = false }
     }
 
     /**
@@ -729,7 +718,5 @@ class MainActivity : ComponentActivity() {
         private const val ANCHOR_FOLLOW_M = 0.10f
         /** Only test for a jump between frames this close together. */
         private const val JUMP_WINDOW_MS = 250L
-        /** Give up waiting for ARCore to relocalize the anchor and force a fresh lock. */
-        private const val RELOC_GIVEUP_MS = 15000L
     }
 }
