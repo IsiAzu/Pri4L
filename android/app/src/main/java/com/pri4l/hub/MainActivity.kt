@@ -12,9 +12,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
+import com.google.ar.core.Anchor
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Config
 import com.google.ar.core.Frame
+import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import android.view.WindowManager
@@ -46,6 +48,22 @@ class MainActivity : ComponentActivity() {
 
     // Auto-align: throttle fiducial detection on the GL thread while unaligned.
     @Volatile private var lastFiducialMs = 0L
+    // Re-lock: throttle fiducial detection while already aligned.
+    @Volatile private var lastRelockMs = 0L
+
+    /**
+     * ARCore anchor seated at the detected tag pose. ARCore drift-corrects anchor poses as it
+     * refines its world estimate, so re-deriving the hub->AR transform from this anchor every
+     * frame keeps the cubes physically fixed. A cached transform built from raw world coordinates
+     * does not — it silently goes stale as you walk, then jumps when ARCore relocalizes.
+     */
+    private var alignAnchor: Anchor? = null
+
+    // Scratch, reused on the GL thread to keep the render loop allocation-free.
+    private val hubOriginPos = floatArrayOf(0f, 0f, 0f)
+    private val hubOriginRot = floatArrayOf(0f, 0f, 0f, 1f)
+    private val anchorPos = FloatArray(3)
+    private val anchorRot = FloatArray(4)
 
     private var hubAnchors: List<FloatArray> = emptyList()
     private var phoneAnchors: List<FloatArray> = emptyList()
@@ -205,6 +223,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handleClearAlignment() {
         frameAlignment.reset()
+        alignAnchor?.detach()
+        alignAnchor = null
         aligned.value = false
     }
 
@@ -288,42 +308,107 @@ class MainActivity : ComponentActivity() {
         // Auto-align: while UNALIGNED, continuously detect the ArUco tag and lock on the first
         // solid detection (no tap). Throttled. While unaligned, the fiducial owns the camera
         // image; streaming runs only once aligned (below) to avoid a double acquireCameraImage.
-        if (!frameAlignment.isAligned && cam.trackingState == TrackingState.TRACKING) {
-            val now = System.currentTimeMillis()
-            if (now - lastFiducialMs >= 250) {
-                lastFiducialMs = now
-                val tag = fiducialAligner?.detectTagInArWorld(frame)
-                if (tag != null) {
-                    frameAlignment.align(
-                        floatArrayOf(0f, 0f, 0f), floatArrayOf(0f, 0f, 0f, 1f),
-                        tag.first, tag.second
-                    )
-                    runOnUiThread { aligned.value = true }
-                    android.util.Log.w("Pri4L",
-                        "AUTO-ALIGNED via FIDUCIAL: tagWorld=[%.3f, %.3f, %.3f]"
-                            .format(tag.first[0], tag.first[1], tag.first[2]))
+        if (!frameAlignment.isAligned) {
+            if (cam.trackingState == TrackingState.TRACKING) {
+                val now = System.currentTimeMillis()
+                if (now - lastFiducialMs >= 250) {
+                    lastFiducialMs = now
+                    val tag = fiducialAligner?.detectTagInArWorld(frame)
+                    if (tag != null) {
+                        lockAlignment(tag.first, tag.second)
+                        lastRelockMs = now
+                        runOnUiThread { aligned.value = true }
+                        android.util.Log.w("Pri4L",
+                            "AUTO-ALIGNED via FIDUCIAL: tagWorld=[%.3f, %.3f, %.3f]"
+                                .format(tag.first[0], tag.first[1], tag.first[2]))
+                    }
                 }
             }
             return  // don't stream/acquire again this frame
         }
 
-        // Aligned: stream frames + publish pose in the hub frame.
-        if (frameAlignment.isAligned) {
-            arCameraBridge?.onFrame(frame)
-            val arPose = arCameraBridge?.getCurrentArPose(frame)
-            if (arPose != null) {
-                val hubPose = frameAlignment.arToHub(arPose.first, arPose.second)
-                if (hubPose != null) {
-                    runOnUiThread {
-                        pose.value = PoseData(
-                            x = hubPose.first[0].toDouble(),
-                            y = hubPose.first[1].toDouble(),
-                            z = hubPose.first[2].toDouble()
-                        )
-                    }
+        // Aligned. Re-derive the transform from the anchor's CURRENT pose every frame: ARCore
+        // moves the anchor to compensate for its own drift and relocalization jumps, so this is
+        // what keeps the cubes nailed to the physical world once you walk away from the tag.
+        refreshAlignmentFromAnchor()
+
+        if (cam.trackingState != TrackingState.TRACKING) return
+
+        // Re-lock: whenever the tag is back in view, re-seat the anchor on a fresh close-range
+        // detection. Costs one camera image, so this frame skips streaming (one
+        // acquireCameraImage per frame).
+        val now = System.currentTimeMillis()
+        if (now - lastRelockMs >= RELOCK_INTERVAL_MS) {
+            lastRelockMs = now
+            val tag = fiducialAligner?.detectTagInArWorld(frame)
+            val range = fiducialAligner?.lastRangeM ?: Float.MAX_VALUE
+            if (tag != null && range <= RELOCK_MAX_RANGE_M && shouldRelock(tag.first, tag.second)) {
+                lockAlignment(tag.first, tag.second)
+                android.util.Log.w("Pri4L",
+                    "RE-LOCKED on fiducial: range=%.2fm tagWorld=[%.3f, %.3f, %.3f]"
+                        .format(range, tag.first[0], tag.first[1], tag.first[2]))
+            }
+            return
+        }
+
+        // Stream frames + publish pose in the hub frame.
+        arCameraBridge?.onFrame(frame)
+        val arPose = arCameraBridge?.getCurrentArPose(frame)
+        if (arPose != null) {
+            val hubPose = frameAlignment.arToHub(arPose.first, arPose.second)
+            if (hubPose != null) {
+                runOnUiThread {
+                    pose.value = PoseData(
+                        x = hubPose.first[0].toDouble(),
+                        y = hubPose.first[1].toDouble(),
+                        z = hubPose.first[2].toDouble()
+                    )
                 }
             }
         }
+    }
+
+    /**
+     * True if a fresh detection disagrees with the current anchor enough to be worth re-seating.
+     * Without this, solvePnP noise would twitch the cubes every [RELOCK_INTERVAL_MS] while the
+     * tag is in view.
+     */
+    private fun shouldRelock(tagPos: FloatArray, tagRot: FloatArray): Boolean {
+        val anchor = alignAnchor ?: return true
+        if (anchor.trackingState != TrackingState.TRACKING) return true
+        val p = anchor.pose
+
+        val dx = tagPos[0] - p.tx(); val dy = tagPos[1] - p.ty(); val dz = tagPos[2] - p.tz()
+        if (dx * dx + dy * dy + dz * dz > RELOCK_MIN_SHIFT_M * RELOCK_MIN_SHIFT_M) return true
+
+        // |dot| = cos(halfAngle) between the two orientations; sign is irrelevant (q ~ -q).
+        val dot = Math.abs(tagRot[0] * p.qx() + tagRot[1] * p.qy() +
+                           tagRot[2] * p.qz() + tagRot[3] * p.qw())
+        return dot < RELOCK_MIN_DOT
+    }
+
+    /** Seat an ARCore anchor at the detected tag pose and align the hub frame to it. */
+    private fun lockAlignment(tagPos: FloatArray, tagRot: FloatArray) {
+        normalize(tagRot)  // ARCore's Pose assumes a unit quaternion
+        try {
+            arSession?.createAnchor(Pose(tagPos, tagRot))?.let { fresh ->
+                alignAnchor?.detach()
+                alignAnchor = fresh
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Pri4L", "createAnchor failed; alignment will not drift-correct", e)
+        }
+        frameAlignment.align(hubOriginPos, hubOriginRot, tagPos, tagRot)
+    }
+
+    /** Rebuild the hub->AR transform from the anchor's drift-corrected pose. GL thread. */
+    private fun refreshAlignmentFromAnchor() {
+        val anchor = alignAnchor ?: return
+        if (anchor.trackingState != TrackingState.TRACKING) return
+        val p = anchor.pose
+        anchorPos[0] = p.tx(); anchorPos[1] = p.ty(); anchorPos[2] = p.tz()
+        anchorRot[0] = p.qx(); anchorRot[1] = p.qy(); anchorRot[2] = p.qz(); anchorRot[3] = p.qw()
+        frameAlignment.align(hubOriginPos, hubOriginRot, anchorPos, anchorRot)
     }
 
     private fun stopAr() {
@@ -331,6 +416,8 @@ class MainActivity : ComponentActivity() {
         aligned.value = false
         arTrackingUiState.value = ArTrackingUiState.OFF
         frameAlignment.reset()
+        alignAnchor?.detach()
+        alignAnchor = null
         glSurfaceViewState.value = null
         arCameraBridge = null
         arSession?.pause()
@@ -429,5 +516,22 @@ class MainActivity : ComponentActivity() {
         cameraSender.stop()
         imuSender.stop()
         rosbridge.disconnect()
+    }
+
+    /** Normalize a [qx, qy, qz, qw] quaternion in place. */
+    private fun normalize(q: FloatArray) {
+        val n = Math.sqrt((q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).toDouble()).toFloat()
+        if (n > 1e-6f) { q[0] /= n; q[1] /= n; q[2] /= n; q[3] /= n }
+    }
+
+    companion object {
+        /** How often to re-check for the tag once aligned, to re-seat the anchor. */
+        private const val RELOCK_INTERVAL_MS = 2000L
+        /** Ignore re-lock detections beyond this range — far solvePnP poses are noisy. */
+        private const val RELOCK_MAX_RANGE_M = 2.5f
+        /** Positional disagreement that justifies re-seating the anchor. */
+        private const val RELOCK_MIN_SHIFT_M = 0.02f
+        /** Orientation disagreement that justifies re-seating: |dot| below cos(1deg). */
+        private const val RELOCK_MIN_DOT = 0.99985f
     }
 }

@@ -75,9 +75,11 @@ class ArRenderer(
         onArFrame?.invoke(frame)
 
         val camera = frame.camera
-        if (camera.trackingState != TrackingState.TRACKING) return
 
+        // Draw the camera feed even while tracking is limited — otherwise the screen goes black
+        // on every hiccup. Anchors stay hidden until the pose is trustworthy again.
         backgroundRenderer.draw(frame)
+        if (camera.trackingState != TrackingState.TRACKING) return
 
         camera.getViewMatrix(viewMatrix, 0)
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100f)
