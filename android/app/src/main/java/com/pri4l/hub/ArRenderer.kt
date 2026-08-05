@@ -69,6 +69,8 @@ class ArRenderer(
             session.setDisplayGeometry(displayRotation(), viewportWidth, viewportHeight)
             frame = session.update()
         } catch (e: Exception) {
+            // Was silent — a dead session looked identical to a healthy one from the outside.
+            android.util.Log.e("Pri4L", "session.update() failed", e)
             return
         }
 

@@ -65,6 +65,19 @@ class MainActivity : ComponentActivity() {
     private val anchorPos = FloatArray(3)
     private val anchorRot = FloatArray(4)
 
+    // --- Tracking-continuity watchdog -------------------------------------------------------
+    // Blocking the camera can make ARCore give up and redefine its world frame. When that
+    // happens the align anchor's pose is meaningless in the new frame, so trusting it renders
+    // the cubes confidently in the wrong place. Detect the two signatures of a reset and force
+    // a fresh fiducial lock instead.
+    @Volatile private var wasTracking = false
+    private var lostTrackingAtMs = 0L
+    /** Alignment survived a tracking gap but has not been re-verified against the tag yet. */
+    @Volatile private var alignmentSuspect = false
+    private val lastCamPos = FloatArray(3)
+    private var lastCamPosMs = 0L
+    private var haveLastCamPos = false
+
     private var hubAnchors: List<FloatArray> = emptyList()
     private var phoneAnchors: List<FloatArray> = emptyList()
 
@@ -265,6 +278,8 @@ class MainActivity : ComponentActivity() {
             session.configure(config)
             session.resume()
             arSession = session
+            android.util.Log.w("Pri4L", "startAr: NEW ARCore session created — world frame reset " +
+                "to this pose, any previous alignment is void")
 
             arCameraBridge = ArCameraBridge(rosbridge, frameAlignment) {
                 (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
@@ -305,6 +320,8 @@ class MainActivity : ComponentActivity() {
         }
         runOnUiThread { arTrackingUiState.value = uiTrack }
 
+        watchTrackingContinuity(cam)
+
         // Auto-align: while UNALIGNED, continuously detect the ArUco tag and lock on the first
         // solid detection (no tap). Throttled. While unaligned, the fiducial owns the camera
         // image; streaming runs only once aligned (below) to avoid a double acquireCameraImage.
@@ -337,16 +354,25 @@ class MainActivity : ComponentActivity() {
         // Re-lock: whenever the tag is back in view, re-seat the anchor on a fresh close-range
         // detection. Costs one camera image, so this frame skips streaming (one
         // acquireCameraImage per frame).
+        // A suspect alignment hunts for the tag hard and accepts any detection; a healthy one
+        // only re-seats on a close, meaningfully different reading.
+        val suspect = alignmentSuspect
+        val interval = if (suspect) SUSPECT_RELOCK_INTERVAL_MS else RELOCK_INTERVAL_MS
+        val maxRange = if (suspect) SUSPECT_RELOCK_MAX_RANGE_M else RELOCK_MAX_RANGE_M
+
         val now = System.currentTimeMillis()
-        if (now - lastRelockMs >= RELOCK_INTERVAL_MS) {
+        if (now - lastRelockMs >= interval) {
             lastRelockMs = now
             val tag = fiducialAligner?.detectTagInArWorld(frame)
             val range = fiducialAligner?.lastRangeM ?: Float.MAX_VALUE
-            if (tag != null && range <= RELOCK_MAX_RANGE_M && shouldRelock(tag.first, tag.second)) {
+            if (tag != null && range <= maxRange &&
+                (suspect || shouldRelock(tag.first, tag.second))) {
                 lockAlignment(tag.first, tag.second)
+                alignmentSuspect = false
                 android.util.Log.w("Pri4L",
-                    "RE-LOCKED on fiducial: range=%.2fm tagWorld=[%.3f, %.3f, %.3f]"
-                        .format(range, tag.first[0], tag.first[1], tag.first[2]))
+                    "RE-LOCKED on fiducial%s: range=%.2fm tagWorld=[%.3f, %.3f, %.3f]"
+                        .format(if (suspect) " (was SUSPECT)" else "", range,
+                                tag.first[0], tag.first[1], tag.first[2]))
             }
             return
         }
@@ -366,6 +392,74 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Watch for the two signatures of ARCore abandoning its world frame (e.g. after the camera
+     * is covered): a gap in tracking, and a discontinuous camera-pose jump. Either one means the
+     * align anchor can no longer be trusted to sit on the physical tag.
+     */
+    private fun watchTrackingContinuity(cam: com.google.ar.core.Camera) {
+        val now = System.currentTimeMillis()
+        val tracking = cam.trackingState == TrackingState.TRACKING
+
+        if (!tracking) {
+            if (wasTracking) {
+                lostTrackingAtMs = now
+                android.util.Log.w("Pri4L",
+                    "TRACKING LOST: state=${cam.trackingState} reason=${cam.trackingFailureReason}")
+            }
+            wasTracking = false
+            haveLastCamPos = false   // don't measure a jump across the gap; it's ambiguous
+            return
+        }
+
+        if (!wasTracking) {
+            val downMs = if (lostTrackingAtMs == 0L) 0L else now - lostTrackingAtMs
+            wasTracking = true
+            if (frameAlignment.isAligned && lostTrackingAtMs != 0L) {
+                if (downMs >= HARD_LOSS_MS) {
+                    android.util.Log.e("Pri4L",
+                        "TRACKING REGAINED after ${downMs}ms — too long to trust the anchor; " +
+                        "dropping alignment, will re-detect the tag")
+                    invalidateAlignment()
+                } else {
+                    alignmentSuspect = true
+                    android.util.Log.w("Pri4L",
+                        "TRACKING REGAINED after ${downMs}ms — alignment SUSPECT, re-verifying " +
+                        "against the tag (anchor=${alignAnchor?.trackingState})")
+                }
+            }
+            return
+        }
+
+        // Still tracking: a large single-frame translation means ARCore redefined its world.
+        val p = cam.pose
+        if (haveLastCamPos && now - lastCamPosMs <= JUMP_WINDOW_MS) {
+            val dx = p.tx() - lastCamPos[0]
+            val dy = p.ty() - lastCamPos[1]
+            val dz = p.tz() - lastCamPos[2]
+            val d2 = dx * dx + dy * dy + dz * dz
+            if (d2 > WORLD_JUMP_M * WORLD_JUMP_M) {
+                android.util.Log.e("Pri4L",
+                    "WORLD RESET suspected: camera pose jumped %.2fm in %dms — dropping alignment"
+                        .format(Math.sqrt(d2.toDouble()), now - lastCamPosMs))
+                invalidateAlignment()
+            }
+        }
+        lastCamPos[0] = p.tx(); lastCamPos[1] = p.ty(); lastCamPos[2] = p.tz()
+        lastCamPosMs = now
+        haveLastCamPos = true
+    }
+
+    /** Drop the alignment entirely; the unaligned path will re-detect the tag automatically. */
+    private fun invalidateAlignment() {
+        frameAlignment.reset()
+        alignAnchor?.detach()
+        alignAnchor = null
+        alignmentSuspect = false
+        haveLastCamPos = false
+        runOnUiThread { aligned.value = false }
     }
 
     /**
@@ -496,12 +590,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        android.util.Log.w("Pri4L", "onResume (session=${if (arSession == null) "none" else "existing"})")
         ensureArStarted()   // start AR (perm-gated) on first run, resume otherwise
         connectToHub()      // reconnect on foreground (was disconnected on background)
     }
 
     override fun onPause() {
         super.onPause()
+        android.util.Log.w("Pri4L", "onPause — ARCore session pausing")
         if (arSession != null) {
             glSurfaceViewState.value?.onPause()
             arSession?.pause()
@@ -533,5 +629,16 @@ class MainActivity : ComponentActivity() {
         private const val RELOCK_MIN_SHIFT_M = 0.02f
         /** Orientation disagreement that justifies re-seating: |dot| below cos(1deg). */
         private const val RELOCK_MIN_DOT = 0.99985f
+
+        /** Hunt for the tag this often while the alignment is unverified after a tracking gap. */
+        private const val SUSPECT_RELOCK_INTERVAL_MS = 250L
+        /** Accept a longer-range fix when suspect — roughly right beats confidently wrong. */
+        private const val SUSPECT_RELOCK_MAX_RANGE_M = 4.0f
+        /** A tracking gap at least this long means ARCore likely redefined its world frame. */
+        private const val HARD_LOSS_MS = 1500L
+        /** Single-frame camera translation that can only be a world-frame redefinition. */
+        private const val WORLD_JUMP_M = 0.35f
+        /** Only test for a jump between frames this close together. */
+        private const val JUMP_WINDOW_MS = 250L
     }
 }
