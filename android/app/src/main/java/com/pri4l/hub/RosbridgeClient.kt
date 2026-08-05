@@ -58,6 +58,8 @@ class RosbridgeClient {
                     reconnectAttempt = 0
                     // Clear advertised topics so they get re-advertised on next publish
                     advertisedTopics.clear()
+                    // Re-issue subscriptions — the new socket has none.
+                    resubscribe()
                 }
             }
 
@@ -100,7 +102,9 @@ class RosbridgeClient {
         val host = reconnectHost ?: return
         val port = reconnectPort ?: return
         reconnectAttempt++
-        val delayMs = minOf(1000L * (1 shl minOf(reconnectAttempt, 3)), 10_000L)
+        // Exponential backoff, capped at 60s steady-state (was 10s). Foreground only —
+        // MainActivity calls disconnect() on background, so this never runs in the background.
+        val delayMs = minOf(1000L * (1 shl minOf(reconnectAttempt, 6)), 60_000L)
         mainHandler.postDelayed({ doConnect(host, port) }, delayMs)
     }
 
@@ -141,8 +145,15 @@ class RosbridgeClient {
         }
     }
 
+    private val subscribeTypes = ConcurrentHashMap<String, Pair<String, Int>>()
+
     fun subscribe(topic: String, type: String, throttleMs: Int = 0, callback: (JSONObject) -> Unit) {
         subscriptions[topic] = callback
+        subscribeTypes[topic] = type to throttleMs
+        sendSubscribe(topic, type, throttleMs)
+    }
+
+    private fun sendSubscribe(topic: String, type: String, throttleMs: Int) {
         val json = JSONObject().apply {
             put("op", "subscribe")
             put("topic", topic)
@@ -150,6 +161,11 @@ class RosbridgeClient {
             if (throttleMs > 0) put("throttle_rate", throttleMs)
         }
         ws?.send(json.toString())
+    }
+
+    /** Re-send all subscriptions (called on (re)connect so they survive a dropped socket). */
+    private fun resubscribe() {
+        subscribeTypes.forEach { (topic, tt) -> sendSubscribe(topic, tt.first, tt.second) }
     }
 
     fun callService(service: String, type: String, id: String = "", callback: (JSONObject) -> Unit) {

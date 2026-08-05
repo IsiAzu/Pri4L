@@ -168,6 +168,6 @@ class FiducialAligner {
     companion object {
         private const val TARGET_ID = 0
         /** Printed black-square width in metres. MUST match the physical print. */
-        const val MARKER_SIZE_M = 0.15f
+        const val MARKER_SIZE_M = 0.156f
     }
 }

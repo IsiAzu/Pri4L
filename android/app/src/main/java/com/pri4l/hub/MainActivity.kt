@@ -40,14 +40,17 @@ class MainActivity : ComponentActivity() {
     private val arTrackingUiState = mutableStateOf(ArTrackingUiState.OFF)
     private val aligned = mutableStateOf(false)
     private val pose = mutableStateOf(PoseData())
+    private val hubAnchorCountState = mutableStateOf(0)
 
     private var glassesTracker: HeadTracker? = null
 
-    // Flag set by UI thread, consumed by GL thread
-    @Volatile private var alignRequested = false
+    // Auto-align: throttle fiducial detection on the GL thread while unaligned.
+    @Volatile private var lastFiducialMs = 0L
 
     private var hubAnchors: List<FloatArray> = emptyList()
     private var phoneAnchors: List<FloatArray> = emptyList()
+
+    private val defaultHost = "192.168.68.129"
 
     private val cameraPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -84,32 +87,32 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface {
-                    HubScreen(
+                    ArAppScreen(
+                        glSurfaceView = glSurfaceViewState.value,
                         connectionState = rosbridge.state.value,
+                        tracking = arTrackingUiState.value,
+                        isAligned = aligned.value,
                         messageCount = rosbridge.messageCount.value,
                         pose = pose.value,
                         imuActive = imuRunning.value,
                         cameraActive = cameraRunning.value,
-                        arActive = arRunning.value || glassesRunning.value,
-                        arAvailable = arAvailable.value || glassesAvailable.value,
-                        arTrackingState = if (glassesRunning.value) ArTrackingUiState.TRACKING else arTrackingUiState.value,
-                        isAligned = aligned.value,
-                        savedHost = prefs.getString("host", "192.168.68.143") ?: "192.168.68.143",
-                        savedPort = prefs.getString("port", "9090") ?: "9090",
-                        onConnect = ::handleConnect,
-                        onDisconnect = ::handleDisconnect,
-                        onToggleImu = ::handleToggleImu,
-                        onToggleCamera = ::handleToggleCamera,
-                        onToggleAr = if (arAvailable.value) ::handleToggleAr else ::handleToggleGlasses,
-                        onAlign = ::handleAlign,
+                        hubAnchorCount = hubAnchorCountState.value,
+                        host = prefs.getString("host", defaultHost) ?: defaultHost,
+                        port = prefs.getString("port", "9090") ?: "9090",
+                        onReAlign = ::handleClearAlignment,   // clear -> auto-align re-detects
                         onClearAlignment = ::handleClearAlignment,
                         onPlaceAnchor = ::handlePlaceAnchor,
-                        glassesMode = glassesAvailable.value && !arAvailable.value,
-                        glSurfaceView = glSurfaceViewState.value
+                        onToggleImu = ::handleToggleImu,
+                        onToggleCamera = ::handleToggleCamera,
+                        onReconnect = { h, p ->
+                            prefs.edit().putString("host", h).putString("port", p.toString()).apply()
+                            connectToHub()
+                        },
                     )
                 }
             }
         }
+        // AR-first: start AR (camera-permission gated) and connect happen in onResume.
     }
 
     private fun checkArAvailability() {
@@ -133,30 +136,35 @@ class MainActivity : ComponentActivity() {
         android.util.Log.w("Pri4L", "arAvailable=$arSupported glassesAvailable=${glassesAvailable.value}")
     }
 
-    private fun handleConnect(host: String, port: Int) {
-        prefs.edit().putString("host", host).putString("port", port.toString()).apply()
+    /** Connect to the hub and (re)subscribe. Idempotent — safe to call on every foreground. */
+    private fun connectToHub() {
+        val host = prefs.getString("host", defaultHost) ?: defaultHost
+        val port = prefs.getString("port", "9090")?.toIntOrNull() ?: 9090
         rosbridge.connect(host, port)
 
-        // Subscribe to hub-created anchors
-        rosbridge.subscribe(
-            topic = "/hub/anchors/hub",
-            type = "geometry_msgs/msg/PoseArray",
-            throttleMs = 1000
-        ) { msg -> hubAnchors = parsePoseArray(msg) }
-
-        // Subscribe to phone-created anchors
-        rosbridge.subscribe(
-            topic = "/hub/anchors/phone",
-            type = "geometry_msgs/msg/PoseArray",
-            throttleMs = 1000
-        ) { msg -> phoneAnchors = parsePoseArray(msg) }
+        rosbridge.subscribe("/hub/anchors/hub", "geometry_msgs/msg/PoseArray", throttleMs = 1000) { msg ->
+            hubAnchors = parsePoseArray(msg)
+            runOnUiThread { hubAnchorCountState.value = hubAnchors.size }
+        }
+        rosbridge.subscribe("/hub/anchors/phone", "geometry_msgs/msg/PoseArray", throttleMs = 1000) { msg ->
+            phoneAnchors = parsePoseArray(msg)
+        }
     }
 
-    private fun handleDisconnect() {
-        if (arRunning.value) handleToggleAr(false)
-        if (imuRunning.value) handleToggleImu(false)
-        if (cameraRunning.value) handleToggleCamera(false)
-        rosbridge.disconnect()
+    /** Start ARCore once (camera-permission gated), or resume an existing session. */
+    private fun ensureArStarted() {
+        if (arSession != null) {
+            arSession?.resume()
+            glSurfaceViewState.value?.onResume()
+            return
+        }
+        if (!arAvailable.value) return
+        if (hasCameraPermission()) {
+            startAr()
+        } else if (!pendingArStart) {
+            pendingArStart = true
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
     }
 
     private fun handleToggleImu(enabled: Boolean) {
@@ -193,11 +201,6 @@ class MainActivity : ComponentActivity() {
         } else {
             stopAr()
         }
-    }
-
-    private fun handleAlign() {
-        // Set flag — actual alignment happens on the GL thread in onArFrame
-        alignRequested = true
     }
 
     private fun handleClearAlignment() {
@@ -282,41 +285,31 @@ class MainActivity : ComponentActivity() {
         }
         runOnUiThread { arTrackingUiState.value = uiTrack }
 
-        // Handle alignment request from UI thread
-        if (alignRequested) {
-            alignRequested = false
-            if (cam.trackingState == TrackingState.TRACKING) {
-                // Tag at hub origin (D435), identity orientation in the hub frame.
-                val hubPos = floatArrayOf(0f, 0f, 0f)
-                val hubRot = floatArrayOf(0f, 0f, 0f, 1f)
-
-                // Prefer fiducial alignment: detect the ArUco tag and use its AR-world pose.
-                // Falls back to phone-at-origin (decision 009) if no tag is in view.
+        // Auto-align: while UNALIGNED, continuously detect the ArUco tag and lock on the first
+        // solid detection (no tap). Throttled. While unaligned, the fiducial owns the camera
+        // image; streaming runs only once aligned (below) to avoid a double acquireCameraImage.
+        if (!frameAlignment.isAligned && cam.trackingState == TrackingState.TRACKING) {
+            val now = System.currentTimeMillis()
+            if (now - lastFiducialMs >= 250) {
+                lastFiducialMs = now
                 val tag = fiducialAligner?.detectTagInArWorld(frame)
                 if (tag != null) {
-                    frameAlignment.align(hubPos, hubRot, tag.first, tag.second)
+                    frameAlignment.align(
+                        floatArrayOf(0f, 0f, 0f), floatArrayOf(0f, 0f, 0f, 1f),
+                        tag.first, tag.second
+                    )
                     runOnUiThread { aligned.value = true }
                     android.util.Log.w("Pri4L",
-                        "ALIGNED via FIDUCIAL: tagWorld=[%.3f, %.3f, %.3f]"
+                        "AUTO-ALIGNED via FIDUCIAL: tagWorld=[%.3f, %.3f, %.3f]"
                             .format(tag.first[0], tag.first[1], tag.first[2]))
-                } else {
-                    val arPose = cam.pose
-                    val arPos = floatArrayOf(arPose.tx(), arPose.ty(), arPose.tz())
-                    val arRot = floatArrayOf(arPose.qx(), arPose.qy(), arPose.qz(), arPose.qw())
-                    frameAlignment.align(hubPos, hubRot, arPos, arRot)
-                    runOnUiThread { aligned.value = true }
-                    android.util.Log.w("Pri4L",
-                        "ALIGNED via phone-at-origin (no tag in view): arPos=[%.3f, %.3f, %.3f]"
-                            .format(arPos[0], arPos[1], arPos[2]))
                 }
             }
+            return  // don't stream/acquire again this frame
         }
 
-        // Stream frames and publish pose
-        arCameraBridge?.onFrame(frame)
-
-        // Update displayed pose from ARCore (in hub frame if aligned)
+        // Aligned: stream frames + publish pose in the hub frame.
         if (frameAlignment.isAligned) {
+            arCameraBridge?.onFrame(frame)
             val arPose = arCameraBridge?.getCurrentArPose(frame)
             if (arPose != null) {
                 val hubPose = frameAlignment.arToHub(arPose.first, arPose.second)
@@ -416,18 +409,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (arRunning.value) {
-            arSession?.resume()
-            glSurfaceViewState.value?.onResume()
-        }
+        ensureArStarted()   // start AR (perm-gated) on first run, resume otherwise
+        connectToHub()      // reconnect on foreground (was disconnected on background)
     }
 
     override fun onPause() {
         super.onPause()
-        if (arRunning.value) {
+        if (arSession != null) {
             glSurfaceViewState.value?.onPause()
             arSession?.pause()
         }
+        // Full disconnect in the background — zero background socket churn.
+        rosbridge.disconnect()
     }
 
     override fun onDestroy() {
